@@ -2,18 +2,31 @@
 
 Monorepo for travel search MVP (frontend + backend + postgres).
 
-## Top-level structure
+## Stack
+- Frontend: React + Vite
+- Backend: FastAPI (Python deps via uv)
+- Database: PostgreSQL
+- Infra: Docker Compose
 
+## Top-level structure
 - `apps/frontend` - React app
 - `apps/backend` - FastAPI app
-- `infra/docker` - Docker-related assets (Dockerfiles, helper configs)
-- `infra/postgres/init` - SQL/init scripts for local Postgres bootstrap
-- `docs` - product/technical documentation
-- `scripts` - local dev/CI helper scripts
+- `infra/docker` - Dockerfiles
+- `infra/postgres/init` - init SQL scripts for local Postgres
+- `docs` - product/technical docs
+- `scripts` - dev/CI helpers
 - `.github/workflows` - CI workflows
 
-## Quick start (planned)
+## Local start
+1. `make init`
+2. `make up`
+3. Open frontend: `http://localhost:3000`
+4. Backend health: `http://localhost:8000/health`
 
-1. Copy `.env.example` to `.env`
-2. Fill required environment variables
-3. Run `docker compose up --build`
+## Common commands
+- `make ps`
+- `make logs`
+- `make backend-test`
+- `make backend-lint`
+- `make frontend-lint`
+- `make frontend-build`

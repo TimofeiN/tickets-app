@@ -24,3 +24,6 @@ coverage/
 
 # Logs
 *.log
+
+# Local AI working notes/plans
+ai/

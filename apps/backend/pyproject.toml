@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tickets-backend"
+version = "0.1.0"
+description = "FastAPI backend for tickets_app"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.135.1",
+  "uvicorn[standard]==0.40.0",
+  "pydantic==2.12.5",
+  "psycopg[binary]==3.3.3"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.0.2",
+  "httpx==0.28.1",
+  "ruff==0.15.5",
+  "black==26.3.0"
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-q"
