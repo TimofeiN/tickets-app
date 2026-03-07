@@ -3,15 +3,18 @@ from __future__ import annotations
 import logging
 
 from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
-from app.db import get_session
-from app.models.iata_city_map import IataCityMap
+from app.application.ports.city_resolver import CityResolver
+from app.core.errors import DataAccessError
+from app.infrastructure.db.models.iata_city_map import IataCityMap
+from app.infrastructure.db.session import get_session
 
 logger = logging.getLogger(__name__)
 
 
-class IataCityResolver:
+class IataCityRepository(CityResolver):
     def resolve_city_names(self, iata_codes: list[str]) -> dict[str, str]:
         normalized_codes = sorted({code.strip().upper() for code in iata_codes if code.strip()})
         if not normalized_codes:
@@ -38,9 +41,9 @@ class IataCityResolver:
                         .where(IataCityMap.city_code.in_(unresolved))
                         .group_by(IataCityMap.city_code)
                     ).all()
-        except Exception as exc:
-            logger.warning("iata_city_resolver_failed reason=%s", str(exc))
-            return {}
+        except SQLAlchemyError as exc:
+            logger.exception("iata_city_resolver_failed reason=%s", str(exc))
+            raise DataAccessError("iata city resolver query failed") from exc
 
         resolved = {
             row.iata_code.upper(): row.city_name

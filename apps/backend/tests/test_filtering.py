@@ -1,8 +1,9 @@
 from datetime import date
 
-from app.providers.travelpayouts import FlightCandidate
-from app.schemas import SearchRequest
-from app.services.filtering import filter_candidates
+from app.api.mappers.trip_preferences_mapper import to_trip_preferences
+from app.api.schemas.search_request import SearchRequest
+from app.domain.models.flight_candidate import FlightCandidate
+from app.domain.services.filtering import filter_candidates
 
 
 def _candidate(
@@ -38,7 +39,7 @@ def test_filter_candidates_strict_applies_budget_and_date_window() -> None:
         _candidate("outside_dates", 450, date(2026, 6, 20), date(2026, 6, 27)),
     ]
 
-    filtered = filter_candidates(candidates, payload)
+    filtered = filter_candidates(candidates, to_trip_preferences(payload))
 
     assert [candidate.option_id for candidate in filtered] == ["keep"]
 
@@ -58,7 +59,7 @@ def test_filter_candidates_flexible_matches_month_year_and_trip_length() -> None
         _candidate("wrong_month", 300, date(2026, 8, 2), date(2026, 8, 9)),
     ]
 
-    filtered = filter_candidates(candidates, payload)
+    filtered = filter_candidates(candidates, to_trip_preferences(payload))
 
     assert [candidate.option_id for candidate in filtered] == ["keep"]
 
@@ -74,6 +75,6 @@ def test_filter_candidates_returns_empty_when_no_budget_fit() -> None:
     )
     candidates = [_candidate("too_expensive", 300, date(2026, 6, 10), date(2026, 6, 17))]
 
-    filtered = filter_candidates(candidates, payload)
+    filtered = filter_candidates(candidates, to_trip_preferences(payload))
 
     assert filtered == []

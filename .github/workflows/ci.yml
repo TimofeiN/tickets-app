@@ -55,3 +55,16 @@ jobs:
         run: |
           cd apps/frontend
           npm run build
+
+  ci-gate:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: ${{ always() }}
+    steps:
+      - name: Verify required jobs
+        run: |
+          if [ "${{ needs.backend.result }}" != "success" ] || [ "${{ needs.frontend.result }}" != "success" ]; then
+            echo "Required checks failed: backend=${{ needs.backend.result }}, frontend=${{ needs.frontend.result }}"
+            exit 1
+          fi
+          echo "All required checks passed"

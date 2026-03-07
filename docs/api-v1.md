@@ -1,8 +1,14 @@
-# API v1 (MVP, no LLM yet)
+# API v1 (MVP + LLM ranking fallback)
 
 ## Endpoints
 - `GET /health`
 - `POST /search`
+
+## Architecture context for API
+- `POST /search` is orchestrated by `SearchService` (application layer).
+- Flight data comes from Travelpayouts provider adapter with internal fallback dataset.
+- Ranking is LLM-first with deterministic fallback.
+- Response always contains 3 options and a `meta` block describing runtime mode.
 
 ## POST /search request
 Required fields:
@@ -64,9 +70,21 @@ Returns exactly 3 options.
       "score": 0.92,
       "reason": "Beach + culture fit and good weather in selected window."
     }
-  ]
+  ],
+  "meta": {
+    "data_source": "live",
+    "ranking_mode": "llm",
+    "constraints_relaxed": false,
+    "fallback_reasons": []
+  }
 }
 ```
+
+`meta` fields:
+- `data_source`: `live` when external provider data is used, `fallback` when internal fallback dataset is used.
+- `ranking_mode`: `llm` when LLM ranking succeeded, `deterministic` when deterministic ranking is used.
+- `constraints_relaxed`: `true` when backend had to fill up to 3 options from outside filtered matches.
+- `fallback_reasons`: machine-readable degradation reasons (provider fallback / LLM fallback / relaxed constraints).
 
 Validation errors use FastAPI default `422` response.
 
@@ -78,14 +96,32 @@ Current backend behavior for `POST /search`:
    - budget filter (`price_usd <= budget_usd / travelers_count`)
    - strict dates filter (candidate interval must fit requested interval)
    - flexible dates filter (year/month/trip length exact match)
-4. Apply deterministic non-LLM ranking.
-5. Return top 3 options (if filtered set has less than 3, fill from cheapest remaining candidates).
+4. Build deterministic shortlist for ranking (bounded by `LLM_SHORTLIST_LIMIT`).
+5. Attempt one LLM ranking request with strict JSON-schema output validation.
+6. If LLM ranking fails (config error, timeout/provider error, invalid/malformed output), fallback to deterministic ranking.
+7. Return exactly 3 options (if filtered set has less than 3, fill from cheapest remaining candidates).
+
+## Known MVP behavior
+- `constraints_relaxed=true` is an expected temporary MVP compromise to keep fixed-length response.
+- Live provider currently supports strict-date mode only.
+- Origin city-to-airport mapping for live requests is currently limited to a small static map in provider adapter.
 
 ## Provider env vars
 - `TRAVELPAYOUTS_API_TOKEN` - API token for live provider calls.
 - `TRAVELPAYOUTS_MARKER` - optional marker parameter.
 - `TRAVELPAYOUTS_BASE_URL` - optional base URL (default `https://api.travelpayouts.com`).
 - `TRAVELPAYOUTS_TIMEOUT_SEC` - optional timeout for provider requests (default `3`).
+
+## LLM ranking env vars
+- `LLM_PROVIDER` - ranking provider (currently supported: `openai`).
+- `LLM_API_KEY` - provider API key.
+- `LLM_MODEL` - provider model ID.
+- `LLM_BASE_URL` - optional provider base URL (default `https://api.openai.com`).
+- `LLM_TIMEOUT_SEC` - optional request timeout (default `5`).
+- `LLM_MAX_TOKENS` - optional output token cap (default `300`).
+- `LLM_RETRY_COUNT` - optional retry count for provider/network errors (default `1`).
+- `LLM_RETRY_BACKOFF_MS` - optional bounded linear backoff in ms (default `150`).
+- `LLM_SHORTLIST_LIMIT` - optional shortlist size before LLM call (default `8`, range `3..12`).
 
 ## IATA city mapping
 - Backend resolves `destination_city` from local table `iata_city_map` by `destination_airport` IATA code.

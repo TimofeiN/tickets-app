@@ -3,13 +3,16 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass
 from datetime import date
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from app.schemas import SearchRequest
+from app.application.ports.flight_search_provider import FlightSearchProvider, FlightSearchResult
+from app.core.errors import DomainInvariantError, ProviderUnavailableError
+from app.core.types import DatesMode, SearchDataSource
+from app.domain.models.flight_candidate import FlightCandidate
+from app.domain.models.trip_preferences import TripPreferences
 
 CITY_AIRPORTS = {
     "belgrade": ["BEG"],
@@ -21,23 +24,7 @@ CITY_AIRPORTS = {
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class FlightCandidate:
-    option_id: str
-    destination_city: str
-    origin_airport: str
-    destination_airport: str
-    price_usd: int
-    departure_date: date
-    return_date: date
-    themes: frozenset[str]
-
-
-class ProviderUnavailableError(Exception):
-    pass
-
-
-class TravelpayoutsClient:
+class TravelpayoutsProvider(FlightSearchProvider):
     def __init__(
         self,
         api_token: str | None,
@@ -51,7 +38,7 @@ class TravelpayoutsClient:
         self.timeout_sec = timeout_sec
 
     @classmethod
-    def from_env(cls) -> "TravelpayoutsClient":
+    def from_env(cls) -> "TravelpayoutsProvider":
         timeout_raw = os.getenv("TRAVELPAYOUTS_TIMEOUT_SEC", "3")
         try:
             timeout_sec = float(timeout_raw)
@@ -65,48 +52,56 @@ class TravelpayoutsClient:
             timeout_sec=max(timeout_sec, 1.0),
         )
 
-    def get_candidates(self, payload: SearchRequest) -> list[FlightCandidate]:
+    def get_candidates(self, preferences: TripPreferences) -> FlightSearchResult:
         try:
             logger.info(
                 "travelpayouts_request_started origin_city=%s dates_mode=%s",
-                payload.origin_city,
-                payload.dates_mode.value,
+                preferences.origin_city,
+                preferences.dates_mode.value,
             )
-            live_candidates = self._fetch_live_candidates(payload)
+            live_candidates = self._fetch_live_candidates(preferences)
             if live_candidates:
                 logger.info(
                     "travelpayouts_request_succeeded source=live candidates=%s",
                     len(live_candidates),
                 )
-                return live_candidates
+                return FlightSearchResult(candidates=live_candidates, source=SearchDataSource.live)
         except ProviderUnavailableError as exc:
-            # Fallback keeps /search usable when external provider is unavailable.
             logger.warning("travelpayouts_fallback_activated reason=%s", str(exc))
+            fallback_reason = str(exc)
+        else:
+            fallback_reason = "provider returned empty response"
 
-        fallback = self._fallback_candidates(payload)
+        fallback = self._fallback_candidates(preferences)
         logger.info(
             "travelpayouts_request_succeeded source=fallback candidates=%s",
             len(fallback),
         )
-        return fallback
+        return FlightSearchResult(
+            candidates=fallback,
+            source=SearchDataSource.fallback,
+            fallback_reason=fallback_reason,
+        )
 
-    def _fetch_live_candidates(self, payload: SearchRequest) -> list[FlightCandidate]:
+    def _fetch_live_candidates(self, preferences: TripPreferences) -> list[FlightCandidate]:
         if not self.api_token:
             raise ProviderUnavailableError("TRAVELPAYOUTS_API_TOKEN is missing")
 
-        origin_airports = self._resolve_airports(payload.origin_city)
+        origin_airports = self._resolve_airports(preferences.origin_city)
         if not origin_airports:
             raise ProviderUnavailableError("origin city is not mapped to known airports")
 
-        if payload.strict_dates is None:
-            # For MVP without LLM and without month-batching, flexible searches use fallback data.
+        if preferences.dates_mode != DatesMode.strict:
             raise ProviderUnavailableError("flexible dates live search is not implemented")
+
+        if preferences.strict_start_date is None or preferences.strict_end_date is None:
+            raise DomainInvariantError("strict dates are required for strict mode")
 
         first_origin = origin_airports[0]
         query = {
             "origin": first_origin,
-            "depart_date": payload.strict_dates.start_date.isoformat(),
-            "return_date": payload.strict_dates.end_date.isoformat(),
+            "depart_date": preferences.strict_start_date.isoformat(),
+            "return_date": preferences.strict_end_date.isoformat(),
             "currency": "usd",
             "token": self.api_token,
         }
@@ -181,15 +176,14 @@ class TravelpayoutsClient:
         if "price" in item:
             return item
 
-        # `/v1/prices/cheap` can return nested offers keyed by transfers count ("0", "1", ...).
         nested_offers = [value for value in item.values() if isinstance(value, dict)]
         for nested in nested_offers:
             if "price" in nested:
                 return nested
         return None
 
-    def _fallback_candidates(self, payload: SearchRequest) -> list[FlightCandidate]:
-        origin_airport = (self._resolve_airports(payload.origin_city) or ["BEG"])[0]
+    def _fallback_candidates(self, preferences: TripPreferences) -> list[FlightCandidate]:
+        origin_airport = (self._resolve_airports(preferences.origin_city) or ["BEG"])[0]
 
         return [
             FlightCandidate(

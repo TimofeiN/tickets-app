@@ -1,17 +1,18 @@
 export default [
   {
+    ignores: ["dist/**", "node_modules/**"],
     files: ["**/*.{js,jsx}"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
       parserOptions: {
         ecmaFeatures: {
-          jsx: true
-        }
-      }
+          jsx: true,
+        },
+      },
     },
     rules: {
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
-    }
-  }
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+    },
+  },
 ];

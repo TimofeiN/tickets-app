@@ -7,8 +7,8 @@ from urllib.request import urlopen
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import ProgrammingError
 
-from app.db import get_session
-from app.models.iata_city_map import IataCityMap
+from app.infrastructure.db.models.iata_city_map import IataCityMap
+from app.infrastructure.db.session import get_session
 
 
 def fetch_json(url: str) -> list[dict[str, object]]:

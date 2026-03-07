@@ -8,7 +8,7 @@ const THEMES = [
   { value: "active_winter", label: "Active winter" },
   { value: "gastronomy", label: "Gastronomy" },
   { value: "family", label: "Family" },
-  { value: "nightlife", label: "Nightlife" }
+  { value: "nightlife", label: "Nightlife" },
 ];
 
 export default function App() {
@@ -31,7 +31,17 @@ export default function App() {
     if (themes.length === 0) return false;
     if (datesMode === "strict") return Boolean(startDate && endDate);
     return Boolean(flexYear && flexMonth && tripLengthDays);
-  }, [budgetUsd, datesMode, endDate, flexMonth, flexYear, originCity, startDate, themes, tripLengthDays]);
+  }, [
+    budgetUsd,
+    datesMode,
+    endDate,
+    flexMonth,
+    flexYear,
+    originCity,
+    startDate,
+    themes,
+    tripLengthDays,
+  ]);
 
   function toggleTheme(theme) {
     setThemes((current) => {
@@ -55,19 +65,19 @@ export default function App() {
       dates_mode: datesMode,
       themes,
       budget_usd: Number(budgetUsd),
-      travelers_count: 2
+      travelers_count: 2,
     };
 
     if (datesMode === "strict") {
       payload.strict_dates = {
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
       };
     } else {
       payload.flexible_dates = {
         year: Number(flexYear),
         month: Number(flexMonth),
-        trip_length_days: Number(tripLengthDays)
+        trip_length_days: Number(tripLengthDays),
       };
     }
 
@@ -75,7 +85,7 @@ export default function App() {
       const response = await fetch(`${BACKEND_URL}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -100,12 +110,18 @@ export default function App() {
       <form className="search-form" onSubmit={handleSubmit}>
         <label>
           Origin city
-          <input value={originCity} onChange={(event) => setOriginCity(event.target.value)} />
+          <input
+            value={originCity}
+            onChange={(event) => setOriginCity(event.target.value)}
+          />
         </label>
 
         <label>
           Dates mode
-          <select value={datesMode} onChange={(event) => setDatesMode(event.target.value)}>
+          <select
+            value={datesMode}
+            onChange={(event) => setDatesMode(event.target.value)}
+          >
             <option value="strict">Strict</option>
             <option value="flexible">Flexible</option>
           </select>
@@ -115,26 +131,43 @@ export default function App() {
           <div className="grid2">
             <label>
               Start date
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+              />
             </label>
             <label>
               End date
-              <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
             </label>
           </div>
         ) : (
           <div className="grid3">
             <label>
               Year
-              <input value={flexYear} onChange={(event) => setFlexYear(event.target.value)} />
+              <input
+                value={flexYear}
+                onChange={(event) => setFlexYear(event.target.value)}
+              />
             </label>
             <label>
               Month
-              <input value={flexMonth} onChange={(event) => setFlexMonth(event.target.value)} />
+              <input
+                value={flexMonth}
+                onChange={(event) => setFlexMonth(event.target.value)}
+              />
             </label>
             <label>
               Trip length days
-              <input value={tripLengthDays} onChange={(event) => setTripLengthDays(event.target.value)} />
+              <input
+                value={tripLengthDays}
+                onChange={(event) => setTripLengthDays(event.target.value)}
+              />
             </label>
           </div>
         )}
@@ -156,7 +189,9 @@ export default function App() {
               <button
                 key={theme.value}
                 type="button"
-                className={themes.includes(theme.value) ? "chip chip-active" : "chip"}
+                className={
+                  themes.includes(theme.value) ? "chip chip-active" : "chip"
+                }
                 onClick={() => toggleTheme(theme.value)}
               >
                 {theme.label}

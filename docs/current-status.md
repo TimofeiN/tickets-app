@@ -1,25 +1,32 @@
 # Current Status (2026-03-07)
 
-## Completed in this branch
-- Monorepo skeleton initialized
-- Docker Compose stack configured (`frontend`, `backend`, `postgres`)
-- Python package management in backend switched to `uv`
-- CORS configured for local frontend origins
-- Backend endpoint `POST /search` added with request validation
-- API response contract stabilized for frontend integration
-- Frontend search form connected to backend and renders top-3 options
-- Backend tests and frontend build pass in Docker
-- Travelpayouts integration layer added with env-based config
-- Provider fallback implemented when external API is unavailable
-- Rules filtering added before ranking:
-  - budget per traveler check (`budget_usd / travelers_count`)
-  - strict/flexible date filtering
-- Deterministic non-LLM ranking and fallback-to-3 options added
-- Backend unit tests added for filtering logic
-- Local table `iata_city_map` added for city-name resolution
-- Manual sync script added to fill/update IATA mapping from Travelpayouts data API
-- Alembic migrations initialized for DB schema versioning
-- DB access refactored from raw SQL to SQLModel + SQLAlchemy sessions
+## Backend architecture (current)
+- Layered backend structure is in place:
+  - `api`: HTTP routers + request/response schemas + dependency wiring
+  - `application`: search orchestration + ranking service + ports
+  - `domain`: pure models and rules (filtering/scoring)
+  - `infrastructure`: Travelpayouts/OpenAI providers + SQLModel repository/session
+  - `core`: app config and logging
+- Main endpoint: `POST /search` with strict request validation and stable 3-option response.
+- Search pipeline:
+  1. Retrieve candidates from Travelpayouts live API when possible.
+  2. Fallback to internal dataset if provider is unavailable.
+  3. Apply rules filtering (budget-per-traveler + strict/flexible dates).
+  4. Build deterministic shortlist (`LLM_SHORTLIST_LIMIT` bounded).
+  5. Try LLM ranking with strict schema validation.
+  6. Fallback to deterministic ranking if LLM is disabled/fails.
+  7. Always return exactly 3 options (fill from cheapest remaining when needed).
+- Response transparency:
+  - `meta.data_source`: `live | fallback`
+  - `meta.ranking_mode`: `llm | deterministic`
+  - `meta.constraints_relaxed`: whether non-filtered options were used to keep 3 options
+  - `meta.fallback_reasons`: degradation reasons (provider/LLM/relaxed constraints)
+
+## Data and operations
+- Local mapping table `iata_city_map` is used for destination city resolution by airport/city IATA code.
+- Schema versioning is managed by Alembic (`apps/backend/alembic/versions`).
+- IATA mapping can be synced from Travelpayouts data API via `apps/backend/scripts/sync_iata_city_map.py`.
+- DB access is SQLModel + SQLAlchemy sessions (`infrastructure/db`).
 
 ## Local run
 - `make init`
@@ -28,10 +35,7 @@
 - backend health: `http://localhost:8000/health`
 - postgres host port: `5433`
 
-## Notes
-- Current `POST /search` uses provider + rules filtering + deterministic ranking (no LLM yet).
-- Live Travelpayouts requests are attempted for strict-date mode when `TRAVELPAYOUTS_API_TOKEN` is set.
-- If provider call fails/unavailable, backend uses internal fallback dataset.
-- Destination city names are resolved from local DB mapping when available.
-- DB schema updates are managed via Alembic revisions.
-- OpenAPI schema contains request/response examples.
+## Quality gates
+- Backend checks: `make backend-check` (ruff + format check + pytest).
+- Frontend checks: `make frontend-lint` and `make frontend-build`.
+- Current backend test suite covers health, request validation, filtering, LLM ranking success/failure paths.

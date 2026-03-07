@@ -1,0 +1,24 @@
+from __future__ import annotations
+
+import logging
+
+from app.core.types import RankingMode, SearchDataSource
+
+logger = logging.getLogger(__name__)
+
+
+def emit_search_degradation_metrics(
+    *,
+    data_source: SearchDataSource,
+    ranking_mode: RankingMode,
+    constraints_relaxed: bool,
+    fallback_reasons: list[str],
+) -> None:
+    logger.info(
+        "metric_search_request_total count=1 data_source=%s ranking_mode=%s constraints_relaxed=%s",
+        data_source,
+        ranking_mode,
+        constraints_relaxed,
+    )
+    for reason in fallback_reasons:
+        logger.info("metric_search_fallback_reason_total count=1 reason=%s", reason)

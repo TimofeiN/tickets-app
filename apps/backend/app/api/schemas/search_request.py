@@ -3,10 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
-class DatesMode(str, Enum):
-    strict = "strict"
-    flexible = "flexible"
+from app.core.types import DatesMode
 
 
 class TripTheme(str, Enum):
@@ -70,52 +67,3 @@ class SearchRequest(BaseModel):
             if self.strict_dates is not None:
                 raise ValueError("strict_dates must be empty when dates_mode='flexible'")
         return self
-
-
-class FlightOption(BaseModel):
-    option_id: str
-    destination_city: str
-    origin_airport: str
-    destination_airport: str
-    price_usd: int
-    score: float = Field(ge=0, le=1)
-    reason: str
-
-
-class SearchResponse(BaseModel):
-    options: list[FlightOption] = Field(min_length=3, max_length=3)
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "options": [
-                    {
-                        "option_id": "opt_bcn_001",
-                        "destination_city": "Barcelona",
-                        "origin_airport": "BEG",
-                        "destination_airport": "BCN",
-                        "price_usd": 640,
-                        "score": 0.92,
-                        "reason": "Beach + culture fit and good weather in selected window.",
-                    },
-                    {
-                        "option_id": "opt_ath_002",
-                        "destination_city": "Athens",
-                        "origin_airport": "BEG",
-                        "destination_airport": "ATH",
-                        "price_usd": 590,
-                        "score": 0.88,
-                        "reason": "History + gastronomy fit with balanced budget usage.",
-                    },
-                    {
-                        "option_id": "opt_lis_003",
-                        "destination_city": "Lisbon",
-                        "origin_airport": "BEG",
-                        "destination_airport": "LIS",
-                        "price_usd": 710,
-                        "score": 0.84,
-                        "reason": "Strong nightlife and city activities within total budget.",
-                    },
-                ]
-            }
-        }
-    )
