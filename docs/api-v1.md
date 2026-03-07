@@ -1,4 +1,4 @@
-# API v1 (MVP mock)
+# API v1 (MVP, no LLM yet)
 
 ## Endpoints
 - `GET /health`
@@ -69,3 +69,31 @@ Returns exactly 3 options.
 ```
 
 Validation errors use FastAPI default `422` response.
+
+## Search pipeline
+Current backend behavior for `POST /search`:
+1. Resolve/collect flight candidates via Travelpayouts provider client.
+2. If provider is unavailable, use internal fallback candidates.
+3. Apply rules filtering before ranking:
+   - budget filter (`price_usd <= budget_usd / travelers_count`)
+   - strict dates filter (candidate interval must fit requested interval)
+   - flexible dates filter (year/month/trip length exact match)
+4. Apply deterministic non-LLM ranking.
+5. Return top 3 options (if filtered set has less than 3, fill from cheapest remaining candidates).
+
+## Provider env vars
+- `TRAVELPAYOUTS_API_TOKEN` - API token for live provider calls.
+- `TRAVELPAYOUTS_MARKER` - optional marker parameter.
+- `TRAVELPAYOUTS_BASE_URL` - optional base URL (default `https://api.travelpayouts.com`).
+- `TRAVELPAYOUTS_TIMEOUT_SEC` - optional timeout for provider requests (default `3`).
+
+## IATA city mapping
+- Backend resolves `destination_city` from local table `iata_city_map` by `destination_airport` IATA code.
+- DB reads/writes use SQLModel + SQLAlchemy (no raw SQL in app services/scripts).
+- Table schema is versioned with Alembic (`apps/backend/alembic/versions`).
+- Manual sync command:
+  - `make backend-db-upgrade`
+  - `make backend-sync-iata`
+- Sync source datasets:
+  - `${TRAVELPAYOUTS_DATA_BASE_URL}/${TRAVELPAYOUTS_DATA_LANG}/airports.json`
+  - `${TRAVELPAYOUTS_DATA_BASE_URL}/${TRAVELPAYOUTS_DATA_LANG}/cities.json`

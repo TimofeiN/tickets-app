@@ -23,8 +23,15 @@ def test_search_strict_dates_success() -> None:
     body = response.json()
     assert "options" in body
     assert len(body["options"]) == 3
-    assert body["options"][0]["destination_city"] == "Barcelona"
-    assert body["options"][0]["option_id"] == "opt_bcn_001"
+
+    for option in body["options"]:
+        assert option["option_id"]
+        assert option["destination_city"]
+        assert option["origin_airport"]
+        assert option["destination_airport"]
+        assert option["price_usd"] > 0
+        assert 0 <= option["score"] <= 1
+        assert option["reason"]
 
 
 def test_search_requires_matching_dates_payload() -> None:

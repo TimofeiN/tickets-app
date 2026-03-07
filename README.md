@@ -28,5 +28,10 @@ Monorepo for travel search MVP (frontend + backend + postgres).
 - `make logs`
 - `make backend-test`
 - `make backend-lint`
+- `make backend-check`
+- `make backend-format`
+- `make backend-db-upgrade`
+- `make backend-db-current`
+- `make backend-sync-iata`
 - `make frontend-lint`
 - `make frontend-build`
