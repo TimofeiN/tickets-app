@@ -47,7 +47,7 @@ class SearchMeta(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    options: list[FlightOption] = Field(min_length=3, max_length=3)
+    options: list[FlightOption] = Field(max_length=3)
     meta: SearchMeta
 
     @classmethod

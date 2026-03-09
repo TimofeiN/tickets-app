@@ -1,25 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+from collections.abc import Callable, Coroutine
 from datetime import date
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from typing import Any
+
+import httpx
 
 from app.application.ports.flight_search_provider import FlightSearchProvider, FlightSearchResult
-from app.core.errors import DomainInvariantError, ProviderUnavailableError
+from app.core.errors import DataAccessError, DomainInvariantError, ProviderUnavailableError
 from app.core.types import DatesMode, SearchDataSource
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
-
-CITY_AIRPORTS = {
-    "belgrade": ["BEG"],
-    "new york": ["JFK", "EWR"],
-    "london": ["LHR", "LGW"],
-    "paris": ["CDG", "ORY"],
-}
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +26,20 @@ class TravelpayoutsProvider(FlightSearchProvider):
         marker: str | None,
         base_url: str,
         timeout_sec: float,
+        origin_airport_resolver: Callable[[str], list[str]] | None = None,
     ) -> None:
         self.api_token = api_token
         self.marker = marker
         self.base_url = base_url.rstrip("/")
         self.timeout_sec = timeout_sec
+        self.origin_airport_resolver = origin_airport_resolver
 
     @classmethod
-    def from_env(cls) -> "TravelpayoutsProvider":
+    def from_env(
+        cls,
+        *,
+        origin_airport_resolver: Callable[[str], list[str]] | None = None,
+    ) -> "TravelpayoutsProvider":
         timeout_raw = os.getenv("TRAVELPAYOUTS_TIMEOUT_SEC", "3")
         try:
             timeout_sec = float(timeout_raw)
@@ -50,6 +51,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
             marker=os.getenv("TRAVELPAYOUTS_MARKER") or None,
             base_url=os.getenv("TRAVELPAYOUTS_BASE_URL", "https://api.travelpayouts.com"),
             timeout_sec=max(timeout_sec, 1.0),
+            origin_airport_resolver=origin_airport_resolver,
         )
 
     def get_candidates(self, preferences: TripPreferences) -> FlightSearchResult:
@@ -97,9 +99,66 @@ class TravelpayoutsProvider(FlightSearchProvider):
         if preferences.strict_start_date is None or preferences.strict_end_date is None:
             raise DomainInvariantError("strict dates are required for strict mode")
 
-        first_origin = origin_airports[0]
+        return self._run_async(self._fetch_live_candidates_async(origin_airports, preferences))
+
+    async def _fetch_live_candidates_async(
+        self,
+        origin_airports: list[str],
+        preferences: TripPreferences,
+    ) -> list[FlightCandidate]:
+        merged_candidates: list[FlightCandidate] = []
+        last_error: str | None = None
+
+        async with httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=self.timeout_sec,
+            headers={"Accept": "application/json"},
+        ) as client:
+            tasks = [
+                self._fetch_live_candidates_for_origin(client, origin_airport, preferences)
+                for origin_airport in origin_airports
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for origin_airport, result in zip(origin_airports, results, strict=True):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "travelpayouts_origin_request_failed origin=%s reason=%s",
+                    origin_airport,
+                    str(result),
+                )
+                if isinstance(result, ProviderUnavailableError):
+                    last_error = str(result)
+                else:
+                    last_error = "provider origin request failed"
+                continue
+            merged_candidates.extend(result)
+
+        deduplicated = self._deduplicate_candidates(merged_candidates)
+        if deduplicated:
+            return deduplicated
+        if last_error is not None:
+            raise ProviderUnavailableError(last_error)
+        raise ProviderUnavailableError("provider returned no usable flights")
+
+    def _run_async(
+        self,
+        coroutine: Coroutine[Any, Any, list[FlightCandidate]],
+    ) -> list[FlightCandidate]:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+        raise ProviderUnavailableError("cannot run async provider inside active event loop")
+
+    async def _fetch_live_candidates_for_origin(
+        self,
+        client: httpx.AsyncClient,
+        origin_airport: str,
+        preferences: TripPreferences,
+    ) -> list[FlightCandidate]:
         query = {
-            "origin": first_origin,
+            "origin": origin_airport,
             "depart_date": preferences.strict_start_date.isoformat(),
             "return_date": preferences.strict_end_date.isoformat(),
             "currency": "usd",
@@ -108,24 +167,24 @@ class TravelpayoutsProvider(FlightSearchProvider):
         if self.marker:
             query["marker"] = self.marker
 
-        url = f"{self.base_url}/v1/prices/cheap?{urlencode(query)}"
-        request = Request(url, headers={"Accept": "application/json"})
-
         try:
-            with urlopen(request, timeout=self.timeout_sec) as response:
-                logger.info(
-                    "travelpayouts_http_response status=%s url=%s",
-                    getattr(response, "status", "unknown"),
-                    f"{self.base_url}/v1/prices/cheap",
-                )
-                raw_body = response.read().decode("utf-8")
-        except HTTPError as exc:
-            raise ProviderUnavailableError(f"provider http error status={exc.code}") from exc
-        except (URLError, TimeoutError) as exc:
+            response = await client.get("/v1/prices/cheap", params=query)
+            response.raise_for_status()
+            logger.info(
+                "travelpayouts_http_response status=%s url=%s origin=%s",
+                response.status_code,
+                "/v1/prices/cheap",
+                origin_airport,
+            )
+        except httpx.HTTPStatusError as exc:
+            raise ProviderUnavailableError(
+                f"provider http error status={exc.response.status_code}"
+            ) from exc
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
             raise ProviderUnavailableError(str(exc)) from exc
 
         try:
-            parsed = json.loads(raw_body)
+            parsed = response.json()
         except json.JSONDecodeError as exc:
             raise ProviderUnavailableError("provider returned malformed json") from exc
 
@@ -156,9 +215,9 @@ class TravelpayoutsProvider(FlightSearchProvider):
 
             candidates.append(
                 FlightCandidate(
-                    option_id=f"tp_{destination_airport.lower()}_{idx:03d}",
+                    option_id=f"tp_{origin_airport.lower()}_{destination_airport.lower()}_{idx:03d}",
                     destination_city=str(destination_city),
-                    origin_airport=first_origin,
+                    origin_airport=origin_airport,
                     destination_airport=destination_airport,
                     price_usd=int(price),
                     departure_date=departure_date,
@@ -166,11 +225,23 @@ class TravelpayoutsProvider(FlightSearchProvider):
                     themes=frozenset({"beach", "history", "nightlife", "gastronomy"}),
                 )
             )
-
-        if not candidates:
-            raise ProviderUnavailableError("provider returned no usable flights")
-
         return candidates
+
+    def _deduplicate_candidates(self, candidates: list[FlightCandidate]) -> list[FlightCandidate]:
+        seen: set[tuple[str, date, date, int]] = set()
+        unique: list[FlightCandidate] = []
+        for candidate in candidates:
+            key = (
+                candidate.destination_airport.upper(),
+                candidate.departure_date,
+                candidate.return_date,
+                candidate.price_usd,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(candidate)
+        return unique
 
     def _normalize_offer_item(self, item: dict[str, object]) -> dict[str, object] | None:
         if "price" in item:
@@ -249,4 +320,21 @@ class TravelpayoutsProvider(FlightSearchProvider):
         ]
 
     def _resolve_airports(self, origin_city: str) -> list[str]:
-        return CITY_AIRPORTS.get(origin_city.strip().lower(), [])
+        if self.origin_airport_resolver is None:
+            return []
+
+        try:
+            resolved = self.origin_airport_resolver(origin_city)
+        except DataAccessError as exc:
+            logger.warning("origin_airport_resolver_failed reason=%s", str(exc))
+            return []
+
+        normalized = [code.strip().upper() for code in resolved if code and code.strip()]
+        seen: set[str] = set()
+        unique: list[str] = []
+        for code in normalized:
+            if code in seen:
+                continue
+            seen.add(code)
+            unique.append(code)
+        return unique

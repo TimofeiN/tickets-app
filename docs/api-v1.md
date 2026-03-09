@@ -8,7 +8,7 @@
 - `POST /search` is orchestrated by `SearchService` (application layer).
 - Flight data comes from Travelpayouts provider adapter with internal fallback dataset.
 - Ranking is LLM-first with deterministic fallback.
-- Response always contains 3 options and a `meta` block describing runtime mode.
+- Response contains up to 3 options (`1..3`) and a `meta` block describing runtime mode.
 
 ## POST /search request
 Required fields:
@@ -56,7 +56,7 @@ Dates payload rules:
 ```
 
 ## POST /search response
-Returns exactly 3 options.
+Returns up to 3 options (`1..3`).
 
 ```json
 {
@@ -83,14 +83,17 @@ Returns exactly 3 options.
 `meta` fields:
 - `data_source`: `live` when external provider data is used, `fallback` when internal fallback dataset is used.
 - `ranking_mode`: `llm` when LLM ranking succeeded, `deterministic` when deterministic ranking is used.
-- `constraints_relaxed`: `true` when backend had to fill up to 3 options from outside filtered matches.
+- `constraints_relaxed`: `true` when backend includes options outside strict budget/date-filtered matches.
 - `fallback_reasons`: machine-readable degradation reasons (provider fallback / LLM fallback / relaxed constraints).
 
 Validation errors use FastAPI default `422` response.
 
 ## Search pipeline
 Current backend behavior for `POST /search`:
-1. Resolve/collect flight candidates via Travelpayouts provider client.
+1. Resolve/collect flight candidates via Travelpayouts provider client:
+   - map `origin_city` to all known origin airports from DB (`iata_city_map`);
+   - query provider asynchronously per origin airport;
+   - merge and deduplicate candidates.
 2. If provider is unavailable, use internal fallback candidates.
 3. Apply rules filtering before ranking:
    - budget filter (`price_usd <= budget_usd / travelers_count`)
@@ -99,12 +102,16 @@ Current backend behavior for `POST /search`:
 4. Build deterministic shortlist for ranking (bounded by `LLM_SHORTLIST_LIMIT`).
 5. Attempt one LLM ranking request with strict JSON-schema output validation.
 6. If LLM ranking fails (config error, timeout/provider error, invalid/malformed output), fallback to deterministic ranking.
-7. Return exactly 3 options (if filtered set has less than 3, fill from cheapest remaining candidates).
+7. Deterministic final selection returns up to 3 options:
+   - prefers cheapest candidates;
+   - enforces unique `destination_airport` among returned options;
+   - may return fewer than 3 when there are not enough unique destinations.
 
 ## Known MVP behavior
-- `constraints_relaxed=true` is an expected temporary MVP compromise to keep fixed-length response.
+- `constraints_relaxed=true` is expected when response uses non-filtered options.
+- Response is variable-length (`1..3`), not fixed-length.
 - Live provider currently supports strict-date mode only.
-- Origin city-to-airport mapping for live requests is currently limited to a small static map in provider adapter.
+- Origin city-to-airport mapping for live requests is resolved from DB (`iata_city_map`) by normalized `city_name`.
 
 ## Provider env vars
 - `TRAVELPAYOUTS_API_TOKEN` - API token for live provider calls.

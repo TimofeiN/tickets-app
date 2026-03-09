@@ -49,3 +49,38 @@ def test_search_response_from_contract_maps_fields() -> None:
     assert response.meta.constraints_relaxed is True
     assert response.meta.fallback_reasons == ["provider fallback: timeout"]
     assert [item.option_id for item in response.options] == ["opt_001", "opt_002", "opt_003"]
+
+
+def test_search_response_from_contract_accepts_less_than_three_options() -> None:
+    result = SearchResult(
+        options=[
+            SearchOptionResult(
+                option_id="opt_001",
+                destination_city="Barcelona",
+                origin_airport="BEG",
+                destination_airport="BCN",
+                price_usd=640,
+                score=0.92,
+                reason="Strong thematic fit.",
+            ),
+            SearchOptionResult(
+                option_id="opt_002",
+                destination_city="Athens",
+                origin_airport="BEG",
+                destination_airport="ATH",
+                price_usd=590,
+                score=0.88,
+                reason="Balanced value.",
+            ),
+        ],
+        meta=SearchMetaResult(
+            data_source=SearchDataSource.live,
+            ranking_mode=RankingMode.deterministic,
+            constraints_relaxed=True,
+            fallback_reasons=["returned fewer than 3 matches after filters"],
+        ),
+    )
+
+    response = SearchResponse.from_contract(result)
+
+    assert len(response.options) == 2

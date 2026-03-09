@@ -27,3 +27,6 @@ coverage/
 
 # Local AI working notes/plans
 ai/
+
+# Backend local debug scripts (do not commit)
+apps/backend/scripts/dev/

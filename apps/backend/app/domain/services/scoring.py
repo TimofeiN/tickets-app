@@ -9,10 +9,10 @@ def score_candidate(candidate: FlightCandidate, preferences: TripPreferences) ->
     matched_themes = len(candidate.themes.intersection(requested_themes))
     theme_ratio = matched_themes / max(len(requested_themes), 1)
 
-    group_budget = preferences.budget_usd
+    per_traveler_budget = preferences.budget_usd / preferences.travelers_count
     budget_ratio = 1.0
-    if group_budget > 0:
-        budget_ratio = max(0.0, min(1.0, 1.0 - (candidate.price_usd / group_budget) * 0.5))
+    if per_traveler_budget > 0:
+        budget_ratio = max(0.0, min(1.0, 1.0 - (candidate.price_usd / per_traveler_budget) * 0.5))
 
     score = 0.7 * theme_ratio + 0.3 * budget_ratio
     return round(max(0.0, min(1.0, score)), 2)
@@ -50,19 +50,41 @@ def pick_with_fallback(
     all_candidates: list[FlightCandidate],
     preferences: TripPreferences,
 ) -> list[FlightCandidate]:
-    top_filtered = select_top_candidates(filtered_candidates, preferences)
-    if len(top_filtered) == 3:
-        return top_filtered
+    del preferences
 
-    selected_ids = {candidate.option_id for candidate in top_filtered}
-    sorted_all = sorted(all_candidates, key=lambda candidate: candidate.price_usd)
+    selected = _pick_cheapest_unique_destinations(filtered_candidates, limit=3)
+    if len(selected) == 3:
+        return selected
 
-    for candidate in sorted_all:
+    selected_ids = {candidate.option_id for candidate in selected}
+    selected_destinations = {candidate.destination_airport.upper() for candidate in selected}
+    for candidate in sorted(all_candidates, key=lambda item: item.price_usd):
+        destination = candidate.destination_airport.upper()
         if candidate.option_id in selected_ids:
             continue
-        top_filtered.append(candidate)
+        if destination in selected_destinations:
+            continue
+        selected.append(candidate)
         selected_ids.add(candidate.option_id)
-        if len(top_filtered) == 3:
+        selected_destinations.add(destination)
+        if len(selected) == 3:
             break
+    return selected
 
-    return top_filtered
+
+def _pick_cheapest_unique_destinations(
+    candidates: list[FlightCandidate],
+    *,
+    limit: int,
+) -> list[FlightCandidate]:
+    selected: list[FlightCandidate] = []
+    seen_destinations: set[str] = set()
+    for candidate in sorted(candidates, key=lambda item: item.price_usd):
+        destination = candidate.destination_airport.upper()
+        if destination in seen_destinations:
+            continue
+        selected.append(candidate)
+        seen_destinations.add(destination)
+        if len(selected) == limit:
+            break
+    return selected
