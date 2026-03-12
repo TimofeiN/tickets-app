@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from app.core.types import DatesMode
+from app.shared.enums import DatesMode
 
 
 @dataclass(frozen=True)

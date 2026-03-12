@@ -1,9 +1,9 @@
 from datetime import date
 
-from app.core.types import DatesMode
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
 from app.domain.services.scoring import pick_with_fallback, score_candidate
+from app.shared.enums import DatesMode
 
 
 def test_score_candidate_uses_per_traveler_budget() -> None:

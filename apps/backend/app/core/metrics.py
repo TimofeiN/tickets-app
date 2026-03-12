@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from app.core.types import RankingMode, SearchDataSource
+from app.shared.enums import RankingMode, SearchDataSource
 
 logger = logging.getLogger(__name__)
 
 
-def emit_search_degradation_metrics(
+def log_search_degradation_metrics(
     *,
     data_source: SearchDataSource,
     ranking_mode: RankingMode,

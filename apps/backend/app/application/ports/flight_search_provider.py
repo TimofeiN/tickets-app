@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.core.types import SearchDataSource
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
+from app.shared.enums import SearchDataSource
 
 
 @dataclass(frozen=True)

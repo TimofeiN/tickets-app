@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.core.types import RankingMode, SearchDataSource
+from app.shared.enums import EnrichmentMode, RankingMode, SearchDataSource
 
 
 @dataclass(frozen=True)
@@ -14,12 +14,25 @@ class SearchOptionResult:
     price_usd: int
     score: float
     reason: str
+    theme_explanation: str
+    highlights: tuple[str, ...]
+    tradeoff: str
+    caveat: str
+    trip_style: str
+    vibe: str
+
+
+@dataclass(frozen=True)
+class SearchGuidanceResult:
+    improvement_hint: str
+    counterfactual: str
 
 
 @dataclass(frozen=True)
 class SearchMetaResult:
     data_source: SearchDataSource
     ranking_mode: RankingMode
+    enrichment_mode: EnrichmentMode
     constraints_relaxed: bool
     fallback_reasons: list[str]
 
@@ -27,4 +40,5 @@ class SearchMetaResult:
 @dataclass(frozen=True)
 class SearchResult:
     options: list[SearchOptionResult]
+    guidance: SearchGuidanceResult
     meta: SearchMetaResult

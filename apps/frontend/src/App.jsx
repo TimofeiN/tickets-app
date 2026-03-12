@@ -13,15 +13,11 @@ const THEMES = [
 
 export default function App() {
   const [originCity, setOriginCity] = useState("Belgrade");
-  const [datesMode, setDatesMode] = useState("strict");
   const [startDate, setStartDate] = useState("2026-06-10");
   const [endDate, setEndDate] = useState("2026-06-17");
-  const [flexYear, setFlexYear] = useState("2026");
-  const [flexMonth, setFlexMonth] = useState("6");
-  const [tripLengthDays, setTripLengthDays] = useState("7");
   const [budgetUsd, setBudgetUsd] = useState("2000");
   const [themes, setThemes] = useState(["beach", "history"]);
-  const [options, setOptions] = useState([]);
+  const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
 
@@ -29,19 +25,8 @@ export default function App() {
     if (!originCity.trim()) return false;
     if (!budgetUsd) return false;
     if (themes.length === 0) return false;
-    if (datesMode === "strict") return Boolean(startDate && endDate);
-    return Boolean(flexYear && flexMonth && tripLengthDays);
-  }, [
-    budgetUsd,
-    datesMode,
-    endDate,
-    flexMonth,
-    flexYear,
-    originCity,
-    startDate,
-    themes,
-    tripLengthDays,
-  ]);
+    return Boolean(startDate && endDate);
+  }, [budgetUsd, endDate, originCity, startDate, themes]);
 
   function toggleTheme(theme) {
     setThemes((current) => {
@@ -62,24 +47,15 @@ export default function App() {
 
     const payload = {
       origin_city: originCity.trim(),
-      dates_mode: datesMode,
+      dates_mode: "strict",
       themes,
       budget_usd: Number(budgetUsd),
       travelers_count: 2,
-    };
-
-    if (datesMode === "strict") {
-      payload.strict_dates = {
+      strict_dates: {
         start_date: startDate,
         end_date: endDate,
-      };
-    } else {
-      payload.flexible_dates = {
-        year: Number(flexYear),
-        month: Number(flexMonth),
-        trip_length_days: Number(tripLengthDays),
-      };
-    }
+      },
+    };
 
     try {
       const response = await fetch(`${BACKEND_URL}/search`, {
@@ -94,14 +70,28 @@ export default function App() {
       }
 
       const data = await response.json();
-      setOptions(data.options || []);
+      setResult({
+        options: data.options || [],
+        guidance: data.guidance || {
+          improvement_hint: "",
+          counterfactual: "",
+        },
+        meta: data.meta || null,
+      });
     } catch (error) {
-      setOptions([]);
+      setResult(null);
       setErrorText(error.message || "Unexpected error");
     } finally {
       setIsLoading(false);
     }
   }
+
+  const options = result?.options || [];
+  const guidance = result?.guidance || {
+    improvement_hint: "",
+    counterfactual: "",
+  };
+  const meta = result?.meta;
 
   return (
     <main className="page">
@@ -116,61 +106,24 @@ export default function App() {
           />
         </label>
 
-        <label>
-          Dates mode
-          <select
-            value={datesMode}
-            onChange={(event) => setDatesMode(event.target.value)}
-          >
-            <option value="strict">Strict</option>
-            <option value="flexible">Flexible</option>
-          </select>
-        </label>
-
-        {datesMode === "strict" ? (
-          <div className="grid2">
-            <label>
-              Start date
-              <input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-            </label>
-            <label>
-              End date
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </label>
-          </div>
-        ) : (
-          <div className="grid3">
-            <label>
-              Year
-              <input
-                value={flexYear}
-                onChange={(event) => setFlexYear(event.target.value)}
-              />
-            </label>
-            <label>
-              Month
-              <input
-                value={flexMonth}
-                onChange={(event) => setFlexMonth(event.target.value)}
-              />
-            </label>
-            <label>
-              Trip length days
-              <input
-                value={tripLengthDays}
-                onChange={(event) => setTripLengthDays(event.target.value)}
-              />
-            </label>
-          </div>
-        )}
+        <div className="grid2">
+          <label>
+            Start date
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+          </label>
+          <label>
+            End date
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </label>
+        </div>
 
         <label>
           Budget USD (total for 2)
@@ -209,17 +162,108 @@ export default function App() {
 
       <section>
         <h2>Top options</h2>
+        {meta ? (
+          <div className="meta-panel">
+            <span className="meta-pill">Source: {meta.data_source}</span>
+            <span className="meta-pill">Ranking: {meta.ranking_mode}</span>
+            <span className="meta-pill">Enrichment: {meta.enrichment_mode}</span>
+            <span className="meta-pill">
+              Constraints relaxed: {meta.constraints_relaxed ? "yes" : "no"}
+            </span>
+          </div>
+        ) : null}
+        {meta?.fallback_reasons?.length ? (
+          <div className="guidance-card">
+            <h3>Runtime notes</h3>
+            <ul className="plain-list">
+              {meta.fallback_reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {guidance.improvement_hint || guidance.counterfactual ? (
+          <div className="guidance-grid">
+            {guidance.improvement_hint ? (
+              <article className="guidance-card">
+                <h3>How to improve results</h3>
+                <p>{guidance.improvement_hint}</p>
+              </article>
+            ) : null}
+            {guidance.counterfactual ? (
+              <article className="guidance-card">
+                <h3>Counterfactual</h3>
+                <p>{guidance.counterfactual}</p>
+              </article>
+            ) : null}
+          </div>
+        ) : null}
         {options.length === 0 ? <p>No results yet.</p> : null}
         <div className="results">
           {options.map((option) => (
             <article className="card" key={option.option_id}>
-              <h3>{option.destination_city}</h3>
-              <p>
-                {option.origin_airport} → {option.destination_airport}
-              </p>
-              <p>Price: ${option.price_usd}</p>
-              <p>Score: {option.score}</p>
-              <p>{option.reason}</p>
+              <div className="card-header">
+                <div>
+                  <h3>{option.destination_city}</h3>
+                  <p className="route">
+                    {option.origin_airport} → {option.destination_airport}
+                  </p>
+                </div>
+                <div className="price-block">
+                  <strong>${option.price_usd}</strong>
+                  <span>Score {option.score}</span>
+                </div>
+              </div>
+
+              <p className="lead">{option.reason}</p>
+
+              {option.theme_explanation ? (
+                <section className="card-section">
+                  <h4>Theme fit</h4>
+                  <p>{option.theme_explanation}</p>
+                </section>
+              ) : null}
+
+              {option.highlights?.length ? (
+                <section className="card-section">
+                  <h4>Highlights</h4>
+                  <ul className="plain-list">
+                    {option.highlights.map((highlight) => (
+                      <li key={highlight}>{highlight}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              <div className="detail-grid">
+                {option.trip_style ? (
+                  <section className="card-section detail-card">
+                    <h4>Trip style</h4>
+                    <p>{option.trip_style}</p>
+                  </section>
+                ) : null}
+                {option.vibe ? (
+                  <section className="card-section detail-card">
+                    <h4>Vibe</h4>
+                    <p>{option.vibe}</p>
+                  </section>
+                ) : null}
+              </div>
+
+              <div className="detail-grid">
+                {option.tradeoff ? (
+                  <section className="card-section detail-card">
+                    <h4>Tradeoff</h4>
+                    <p>{option.tradeoff}</p>
+                  </section>
+                ) : null}
+                {option.caveat ? (
+                  <section className="card-section detail-card">
+                    <h4>Caveat</h4>
+                    <p>{option.caveat}</p>
+                  </section>
+                ) : null}
+              </div>
             </article>
           ))}
         </div>

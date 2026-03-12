@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from app.core.settings import settings
 
 config = context.config
 
@@ -15,15 +15,8 @@ if config.config_file_name is not None:
 target_metadata = None
 
 
-def get_database_url() -> str:
-    return os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://tickets_user:tickets_password@postgres:5432/tickets_app",
-    )
-
-
 def run_migrations_offline() -> None:
-    url = get_database_url()
+    url = settings.database_dsn
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -37,7 +30,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     cfg = config.get_section(config.config_ini_section) or {}
-    cfg["sqlalchemy.url"] = get_database_url()
+    cfg["sqlalchemy.url"] = settings.database_dsn
 
     connectable = engine_from_config(
         cfg,

@@ -3,19 +3,28 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from app.application.dto.search_result import SearchMetaResult, SearchOptionResult, SearchResult
+from app.application.dto.search_result import (
+    SearchGuidanceResult,
+    SearchMetaResult,
+    SearchOptionResult,
+    SearchResult,
+)
 from app.application.ports.city_resolver import CityResolver
 from app.application.ports.flight_search_provider import FlightSearchProvider
 from app.application.ports.llm_provider import LLMConfigurationError, LLMProviderError
+from app.application.services.enrichment_service import (
+    EnrichmentContext,
+    EnrichmentService,
+    build_empty_enrichment,
+)
 from app.application.services.ranking_service import (
     LLMResponseValidationError,
     RankingService,
     build_shortlist_for_llm,
 )
-from app.core.config import get_llm_shortlist_limit
 from app.core.errors import DataAccessError, LLMRankingError
-from app.core.metrics import emit_search_degradation_metrics
-from app.core.types import RankingMode, SearchDataSource
+from app.core.metrics import log_search_degradation_metrics
+from app.core.settings import settings
 from app.domain.models.trip_preferences import TripPreferences
 from app.domain.services.filtering import filter_candidates
 from app.domain.services.scoring import (
@@ -24,6 +33,7 @@ from app.domain.services.scoring import (
     score_candidate,
     sort_candidates,
 )
+from app.shared.enums import EnrichmentMode, RankingMode, SearchDataSource
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +45,15 @@ class SearchService:
         flight_provider: FlightSearchProvider,
         city_resolver: CityResolver,
         ranking_service_factory: Callable[[], RankingService],
+        enrichment_service_factory: Callable[[], EnrichmentService],
         shortlist_limit: int | None = None,
     ) -> None:
         self.flight_provider = flight_provider
         self.city_resolver = city_resolver
         self.ranking_service_factory = ranking_service_factory
+        self.enrichment_service_factory = enrichment_service_factory
         self.shortlist_limit = (
-            shortlist_limit if shortlist_limit is not None else get_llm_shortlist_limit()
+            shortlist_limit if shortlist_limit is not None else settings.llm_shortlist_limit
         )
 
     def search(self, preferences: TripPreferences) -> SearchResult:
@@ -59,6 +71,7 @@ class SearchService:
         selected_candidates = deterministic_top3
         reasons_by_option_id: dict[str, str] = {}
         ranking_mode = RankingMode.deterministic
+        enrichment_mode = EnrichmentMode.unavailable
 
         deterministic_sorted = sort_candidates(filtered_candidates, preferences)
         shortlist = build_shortlist_for_llm(
@@ -107,6 +120,42 @@ class SearchService:
             fallback_reasons.append(f"city resolver fallback: {str(exc)}")
             city_names_by_iata = {}
 
+        constraints_relaxed = any(
+            candidate.option_id not in filtered_ids for candidate in selected_candidates
+        )
+        enrichment_context = EnrichmentContext(
+            selected_count=len(selected_candidates),
+            filtered_count=len(filtered_candidates),
+            constraints_relaxed=constraints_relaxed,
+            data_source=provider_result.source.value,
+            ranking_mode=ranking_mode.value,
+        )
+
+        try:
+            enrichment_service = self.enrichment_service_factory()
+            enrichment_result = enrichment_service.enrich(
+                preferences,
+                selected_candidates,
+                enrichment_context,
+            )
+            enrichment_mode = EnrichmentMode.llm
+        except LLMConfigurationError as exc:
+            logger.info("llm_enrichment_disabled reason=%s", str(exc))
+            fallback_reasons.append(f"llm enrichment disabled: {str(exc)}")
+            enrichment_result = build_empty_enrichment(
+                preferences,
+                selected_candidates,
+                enrichment_context,
+            )
+        except (LLMResponseValidationError, LLMProviderError, LLMRankingError) as exc:
+            logger.warning("llm_enrichment_fallback cause=%s", str(exc))
+            fallback_reasons.append(f"llm enrichment fallback: {str(exc)}")
+            enrichment_result = build_empty_enrichment(
+                preferences,
+                selected_candidates,
+                enrichment_context,
+            )
+
         options = [
             SearchOptionResult(
                 option_id=candidate.option_id,
@@ -122,15 +171,22 @@ class SearchService:
                     candidate.option_id,
                     build_reason(candidate, preferences),
                 ),
+                theme_explanation=enrichment_result.insights_by_option_id[
+                    candidate.option_id
+                ].theme_explanation,
+                highlights=enrichment_result.insights_by_option_id[candidate.option_id].highlights,
+                tradeoff=enrichment_result.insights_by_option_id[candidate.option_id].tradeoff,
+                caveat=enrichment_result.insights_by_option_id[candidate.option_id].caveat,
+                trip_style=enrichment_result.insights_by_option_id[candidate.option_id].trip_style,
+                vibe=enrichment_result.insights_by_option_id[candidate.option_id].vibe,
             )
             for candidate in selected_candidates
         ]
-        constraints_relaxed = any(
-            candidate.option_id not in filtered_ids for candidate in selected_candidates
-        )
         if constraints_relaxed:
-            fallback_reasons.append("returned fewer than 3 matches after filters")
-        emit_search_degradation_metrics(
+            fallback_reasons.append(
+                "constraints relaxed: included options outside budget/date filters"
+            )
+        log_search_degradation_metrics(
             data_source=provider_result.source,
             ranking_mode=ranking_mode,
             constraints_relaxed=constraints_relaxed,
@@ -138,9 +194,14 @@ class SearchService:
         )
         return SearchResult(
             options=options,
+            guidance=SearchGuidanceResult(
+                improvement_hint=enrichment_result.guidance.improvement_hint,
+                counterfactual=enrichment_result.guidance.counterfactual,
+            ),
             meta=SearchMetaResult(
                 data_source=provider_result.source,
                 ranking_mode=ranking_mode,
+                enrichment_mode=enrichment_mode,
                 constraints_relaxed=constraints_relaxed,
                 fallback_reasons=fallback_reasons,
             ),

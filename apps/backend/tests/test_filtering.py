@@ -44,26 +44,6 @@ def test_filter_candidates_strict_applies_budget_and_date_window() -> None:
     assert [candidate.option_id for candidate in filtered] == ["keep"]
 
 
-def test_filter_candidates_flexible_matches_month_year_and_trip_length() -> None:
-    payload = SearchRequest(
-        origin_city="Belgrade",
-        dates_mode="flexible",
-        flexible_dates={"year": 2026, "month": 7, "trip_length_days": 7},
-        themes=["beach"],
-        budget_usd=2000,
-        travelers_count=2,
-    )
-    candidates = [
-        _candidate("keep", 600, date(2026, 7, 2), date(2026, 7, 9)),
-        _candidate("wrong_length", 400, date(2026, 7, 2), date(2026, 7, 8)),
-        _candidate("wrong_month", 300, date(2026, 8, 2), date(2026, 8, 9)),
-    ]
-
-    filtered = filter_candidates(candidates, to_trip_preferences(payload))
-
-    assert [candidate.option_id for candidate in filtered] == ["keep"]
-
-
 def test_filter_candidates_returns_empty_when_no_budget_fit() -> None:
     payload = SearchRequest(
         origin_city="Belgrade",

@@ -1,40 +1,41 @@
 from __future__ import annotations
 
-import json
-from urllib.error import URLError
-
+import httpx
 import pytest
-from pydantic import BaseModel
 
 from app.infrastructure.providers.openai_provider import (
     LLMProviderError,
     OpenAIProvider,
     OpenAIProviderConfig,
 )
+from app.shared.strict_model import StrictModel
 
 
-class _OutputModel(BaseModel):
+class _OutputModel(StrictModel):
     value: str
 
 
-class _FakeResponse:
-    def __init__(self, body: str) -> None:
-        self._body = body
+class _FakeAsyncClient:
+    def __init__(self, responses):  # noqa: ANN001
+        self._responses = list(responses)
 
-    def __enter__(self) -> "_FakeResponse":
+    async def __aenter__(self) -> "_FakeAsyncClient":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001
+    async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001
         return False
 
-    def read(self) -> bytes:
-        return self._body.encode("utf-8")
+    async def post(self, path: str, json: dict[str, object]):  # noqa: ANN001, A002
+        del path, json
+        item = self._responses.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
 
 
 def _api() -> OpenAIProvider:
     return OpenAIProvider(
         OpenAIProviderConfig(
-            provider="openai",
             api_key="test-key",
             model="gpt-test",
             base_url="https://example.test",
@@ -48,9 +49,11 @@ def _api() -> OpenAIProvider:
 
 def test_openai_api_returns_content(monkeypatch: pytest.MonkeyPatch) -> None:
     provider_body = {"choices": [{"message": {"content": '{"value":"ok"}'}}]}
+    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
+    response = httpx.Response(200, request=request, json=provider_body)
     monkeypatch.setattr(
-        "app.infrastructure.providers.openai_provider.urlopen",
-        lambda request, timeout: _FakeResponse(json.dumps(provider_body)),
+        "app.infrastructure.providers.openai_provider.httpx.AsyncClient",
+        lambda **kwargs: _FakeAsyncClient([response]),  # noqa: ARG005
     )
 
     output = _api().complete(
@@ -63,9 +66,15 @@ def test_openai_api_returns_content(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_openai_api_retries_then_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
     monkeypatch.setattr(
-        "app.infrastructure.providers.openai_provider.urlopen",
-        lambda request, timeout: (_ for _ in ()).throw(URLError("timeout")),
+        "app.infrastructure.providers.openai_provider.httpx.AsyncClient",
+        lambda **kwargs: _FakeAsyncClient(  # noqa: ARG005
+            [
+                httpx.ConnectError("timeout", request=request),
+                httpx.ConnectError("timeout", request=request),
+            ]
+        ),
     )
     monkeypatch.setattr("app.infrastructure.providers.openai_provider.time.sleep", lambda _: None)
 

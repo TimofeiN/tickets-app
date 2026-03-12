@@ -1,19 +1,8 @@
 from datetime import date
-from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.core.types import DatesMode
-
-
-class TripTheme(str, Enum):
-    beach = "beach"
-    history = "history"
-    active_summer = "active_summer"
-    active_winter = "active_winter"
-    gastronomy = "gastronomy"
-    family = "family"
-    nightlife = "nightlife"
+from app.shared.enums import DatesMode, TripTheme
 
 
 class StrictDates(BaseModel):
@@ -37,7 +26,6 @@ class SearchRequest(BaseModel):
     origin_city: str = Field(min_length=2, max_length=120)
     dates_mode: DatesMode
     strict_dates: StrictDates | None = None
-    flexible_dates: FlexibleDates | None = None
     themes: list[TripTheme] = Field(min_length=1, max_length=5)
     budget_usd: int = Field(ge=100, le=50000)
     travelers_count: int = Field(default=2, ge=1, le=10)
@@ -56,14 +44,8 @@ class SearchRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates_payload(self) -> "SearchRequest":
-        if self.dates_mode == DatesMode.strict:
-            if self.strict_dates is None:
-                raise ValueError("strict_dates is required when dates_mode='strict'")
-            if self.flexible_dates is not None:
-                raise ValueError("flexible_dates must be empty when dates_mode='strict'")
-        if self.dates_mode == DatesMode.flexible:
-            if self.flexible_dates is None:
-                raise ValueError("flexible_dates is required when dates_mode='flexible'")
-            if self.strict_dates is not None:
-                raise ValueError("strict_dates must be empty when dates_mode='flexible'")
+        if self.dates_mode != DatesMode.strict:
+            raise ValueError("dates_mode='flexible' is reserved for future implementation")
+        if self.strict_dates is None:
+            raise ValueError("strict_dates is required when dates_mode='strict'")
         return self

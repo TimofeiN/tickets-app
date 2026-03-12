@@ -1,20 +1,24 @@
 from __future__ import annotations
 
+import asyncio
 import json
-import os
 import time
+from collections.abc import Coroutine
 from dataclasses import dataclass
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
+import httpx
 from pydantic import BaseModel
 
-from app.application.ports.llm_provider import LLMConfigurationError, LLMProvider, LLMProviderError
+from app.application.ports.llm_provider import (
+    LLMConfigurationError,
+    LLMProvider,
+    LLMProviderError,
+)
+from app.core.settings import settings
 
 
 @dataclass(frozen=True)
 class OpenAIProviderConfig:
-    provider: str
     api_key: str
     model: str
     base_url: str
@@ -24,39 +28,23 @@ class OpenAIProviderConfig:
     retry_backoff_ms: int
 
     @classmethod
-    def from_env(cls) -> "OpenAIProviderConfig":
-        provider = os.getenv("LLM_PROVIDER", "").strip().lower()
-        api_key = os.getenv("LLM_API_KEY", "").strip()
-        model = os.getenv("LLM_MODEL", "").strip()
+    def from_settings(cls) -> "OpenAIProviderConfig":
+        api_key = settings.openai_api_key
+        model = settings.openai_model
 
-        if not provider:
-            raise LLMConfigurationError("LLM_PROVIDER is missing")
-        if provider not in {"openai"}:
-            raise LLMConfigurationError(f"unsupported LLM_PROVIDER: {provider}")
         if not api_key:
             raise LLMConfigurationError("LLM_API_KEY is missing")
         if not model:
             raise LLMConfigurationError("LLM_MODEL is missing")
 
-        timeout_sec = _float_env("LLM_TIMEOUT_SEC", default=5.0, min_value=0.5)
-        max_tokens = _int_env("LLM_MAX_TOKENS", default=300, min_value=64, max_value=1500)
-        retry_count = _int_env("LLM_RETRY_COUNT", default=1, min_value=0, max_value=3)
-        retry_backoff_ms = _int_env(
-            "LLM_RETRY_BACKOFF_MS",
-            default=150,
-            min_value=50,
-            max_value=5000,
-        )
-
         return cls(
-            provider=provider,
             api_key=api_key,
             model=model,
-            base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com").rstrip("/"),
-            timeout_sec=timeout_sec,
-            max_tokens=max_tokens,
-            retry_count=retry_count,
-            retry_backoff_ms=retry_backoff_ms,
+            base_url=settings.openai_base_url,
+            timeout_sec=settings.openai_timeout_sec,
+            max_tokens=settings.openai_max_tokens,
+            retry_count=settings.openai_retry_count,
+            retry_backoff_ms=settings.openai_retry_backoff_ms,
         )
 
 
@@ -65,8 +53,8 @@ class OpenAIProvider(LLMProvider):
         self.config = config
 
     @classmethod
-    def from_env(cls) -> "OpenAIProvider":
-        return cls(config=OpenAIProviderConfig.from_env())
+    def from_settings(cls) -> "OpenAIProvider":
+        return cls(config=OpenAIProviderConfig.from_settings())
 
     def complete(
         self,
@@ -92,29 +80,44 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user_prompt},
             ],
         }
-        body = json.dumps(request_body, ensure_ascii=True).encode("utf-8")
-        request = Request(
-            url=f"{self.config.base_url}/v1/chat/completions",
-            data=body,
-            headers={
-                "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
+        return self._run_async(
+            self._complete_async(request_body=request_body),
         )
 
+    async def _complete_async(self, *, request_body: dict[str, object]) -> str:
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json",
+        }
+
         total_attempts = self.config.retry_count + 1
-        for attempt in range(1, total_attempts + 1):
-            try:
-                with urlopen(request, timeout=self.config.timeout_sec) as response:
-                    raw_response = response.read().decode("utf-8")
-                return _extract_content(raw_response)
-            except (HTTPError, URLError, TimeoutError) as exc:
-                if attempt >= total_attempts:
-                    raise LLMProviderError(str(exc)) from exc
-                self._sleep_before_retry(attempt)
+        async with httpx.AsyncClient(
+            base_url=self.config.base_url,
+            timeout=self.config.timeout_sec,
+            headers=headers,
+        ) as client:
+            for attempt in range(1, total_attempts + 1):
+                try:
+                    response = await client.post("/v1/chat/completions", json=request_body)
+                    response.raise_for_status()
+                    return _extract_content(response.text)
+                except httpx.HTTPStatusError as exc:
+                    if attempt >= total_attempts:
+                        raise LLMProviderError(str(exc)) from exc
+                    self._sleep_before_retry(attempt)
+                except (httpx.TimeoutException, httpx.RequestError) as exc:
+                    if attempt >= total_attempts:
+                        raise LLMProviderError(str(exc)) from exc
+                    self._sleep_before_retry(attempt)
 
         raise LLMProviderError("unexpected provider error")
+
+    def _run_async(self, coroutine: Coroutine[object, object, str]) -> str:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+        raise LLMProviderError("cannot run async LLM provider inside active event loop")
 
     def _sleep_before_retry(self, attempt: int) -> None:
         delay_sec = (self.config.retry_backoff_ms / 1000.0) * attempt
@@ -135,21 +138,3 @@ def _extract_content(raw_response: str) -> str:
     if not isinstance(content, str):
         raise LLMProviderError("provider response content is not text")
     return content
-
-
-def _float_env(name: str, default: float, min_value: float) -> float:
-    raw = os.getenv(name, str(default))
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return max(value, min_value)
-
-
-def _int_env(name: str, default: int, min_value: int, max_value: int) -> int:
-    raw = os.getenv(name, str(default))
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
-    return max(min(value, max_value), min_value)

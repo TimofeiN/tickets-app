@@ -3,18 +3,19 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
-from collections.abc import Callable, Coroutine
+from collections.abc import Coroutine
 from datetime import date
 from typing import Any
 
 import httpx
 
 from app.application.ports.flight_search_provider import FlightSearchProvider, FlightSearchResult
+from app.application.ports.origin_airport_resolver import OriginAirportResolver
 from app.core.errors import DataAccessError, DomainInvariantError, ProviderUnavailableError
-from app.core.types import DatesMode, SearchDataSource
+from app.core.settings import settings
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
+from app.shared.enums import DatesMode, SearchDataSource
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
         marker: str | None,
         base_url: str,
         timeout_sec: float,
-        origin_airport_resolver: Callable[[str], list[str]] | None = None,
+        origin_airport_resolver: OriginAirportResolver | None = None,
     ) -> None:
         self.api_token = api_token
         self.marker = marker
@@ -35,22 +36,16 @@ class TravelpayoutsProvider(FlightSearchProvider):
         self.origin_airport_resolver = origin_airport_resolver
 
     @classmethod
-    def from_env(
+    def from_settings(
         cls,
         *,
-        origin_airport_resolver: Callable[[str], list[str]] | None = None,
+        origin_airport_resolver: OriginAirportResolver | None = None,
     ) -> "TravelpayoutsProvider":
-        timeout_raw = os.getenv("TRAVELPAYOUTS_TIMEOUT_SEC", "3")
-        try:
-            timeout_sec = float(timeout_raw)
-        except ValueError:
-            timeout_sec = 3.0
-
         return cls(
-            api_token=os.getenv("TRAVELPAYOUTS_API_TOKEN") or None,
-            marker=os.getenv("TRAVELPAYOUTS_MARKER") or None,
-            base_url=os.getenv("TRAVELPAYOUTS_BASE_URL", "https://api.travelpayouts.com"),
-            timeout_sec=max(timeout_sec, 1.0),
+            api_token=settings.travelpayouts_api_token,
+            marker=settings.travelpayouts_marker,
+            base_url=settings.travelpayouts_base_url,
+            timeout_sec=settings.travelpayouts_timeout_sec,
             origin_airport_resolver=origin_airport_resolver,
         )
 
@@ -151,6 +146,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
             return asyncio.run(coroutine)
         raise ProviderUnavailableError("cannot run async provider inside active event loop")
 
+    # TODO: split method into smaller ones
     async def _fetch_live_candidates_for_origin(
         self,
         client: httpx.AsyncClient,
@@ -222,7 +218,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
                     price_usd=int(price),
                     departure_date=departure_date,
                     return_date=return_date,
-                    themes=frozenset({"beach", "history", "nightlife", "gastronomy"}),
+                    themes=frozenset(),
                 )
             )
         return candidates
@@ -253,6 +249,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
                 return nested
         return None
 
+    # TODO: Remove this logic to a separate file for fallbacks
     def _fallback_candidates(self, preferences: TripPreferences) -> list[FlightCandidate]:
         origin_airport = (self._resolve_airports(preferences.origin_city) or ["BEG"])[0]
 
@@ -324,7 +321,7 @@ class TravelpayoutsProvider(FlightSearchProvider):
             return []
 
         try:
-            resolved = self.origin_airport_resolver(origin_city)
+            resolved = self.origin_airport_resolver.resolve_airports(origin_city)
         except DataAccessError as exc:
             logger.warning("origin_airport_resolver_failed reason=%s", str(exc))
             return []

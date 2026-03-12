@@ -2,24 +2,32 @@ from __future__ import annotations
 
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import Field, ValidationError
 
 from app.application.ports.llm_provider import LLMProvider
 from app.core.errors import DomainInvariantError, LLMResponseValidationError
-from app.core.types import DatesMode
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.ranking_result import RankedOption, RankingResult
 from app.domain.models.trip_preferences import TripPreferences
+from app.shared.enums import DatesMode
+from app.shared.strict_model import StrictModel
 
 
-class _RankedOptionSchema(BaseModel):
-    option_id: str = Field(min_length=1)
-    reason: str = Field(min_length=1, max_length=240)
+class _RankedOptionSchema(StrictModel):
+    option_id: str = Field(min_length=1, description="Selected option identifier.")
+    reason: str = Field(
+        min_length=1,
+        max_length=240,
+        description="Short reason for this ranking.",
+    )
 
 
-class _LLMRankingOutputSchema(BaseModel):
-    ranked_options: list[_RankedOptionSchema] = Field(min_length=3, max_length=3)
-    model_config = ConfigDict(extra="forbid")
+class _LLMRankingOutputSchema(StrictModel):
+    ranked_options: list[_RankedOptionSchema] = Field(
+        min_length=3,
+        max_length=3,
+        description="Exactly three ranked options.",
+    )
 
 
 class RankingService:

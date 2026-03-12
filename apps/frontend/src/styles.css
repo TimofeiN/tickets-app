@@ -96,11 +96,119 @@ button:disabled {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   padding: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.route {
+  margin: 0.25rem 0 0;
+  color: #475569;
+}
+
+.price-block {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: end;
+  text-align: right;
+}
+
+.price-block strong {
+  font-size: 1.25rem;
+}
+
+.lead {
+  margin: 0;
+  color: #0f172a;
+}
+
+.card-section {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.card-section h4,
+.guidance-card h3 {
+  margin: 0;
+}
+
+.card-section p,
+.guidance-card p {
+  margin: 0;
+  color: #334155;
+}
+
+.plain-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: #334155;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.detail-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+}
+
+.meta-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.meta-pill {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.guidance-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1rem;
+}
+
+.guidance-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 
 @media (max-width: 760px) {
   .grid2,
-  .grid3 {
+  .grid3,
+  .detail-grid,
+  .guidance-grid {
     grid-template-columns: 1fr;
+  }
+
+  .card-header {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .price-block {
+    justify-items: start;
+    text-align: left;
   }
 }

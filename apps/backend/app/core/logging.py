@@ -1,11 +1,10 @@
 import logging
 import logging.config
-import os
+
+from app.core.settings import settings
 
 
 def configure_logging() -> None:
-    log_level = os.getenv("APP_LOG_LEVEL", "INFO").upper()
-
     logging.config.dictConfig(
         {
             "version": 1,
@@ -23,7 +22,7 @@ def configure_logging() -> None:
             },
             "root": {
                 "handlers": ["default"],
-                "level": log_level,
+                "level": settings.app_log_level,
             },
             "loggers": {
                 "uvicorn": {"level": "INFO"},

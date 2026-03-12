@@ -1,10 +1,23 @@
 from datetime import date
 
 from app.core.errors import DataAccessError
-from app.core.types import DatesMode
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
 from app.infrastructure.providers.travelpayouts_provider import TravelpayoutsProvider
+from app.shared.enums import DatesMode
+
+
+class _FakeOriginAirportResolver:
+    def __init__(self, resolve_result=None, error: Exception | None = None) -> None:  # noqa: ANN001
+        self.resolve_result = resolve_result or []
+        self.error = error
+
+    def resolve_airports(self, origin_city: str) -> list[str]:
+        if self.error is not None:
+            raise self.error
+        if callable(self.resolve_result):
+            return self.resolve_result(origin_city)
+        return list(self.resolve_result)
 
 
 def test_resolve_airports_uses_injected_resolver() -> None:
@@ -13,22 +26,21 @@ def test_resolve_airports_uses_injected_resolver() -> None:
         marker=None,
         base_url="https://api.travelpayouts.com",
         timeout_sec=3.0,
-        origin_airport_resolver=lambda city: [" beg ", "BEG", "INI"] if city == "Belgrade" else [],
+        origin_airport_resolver=_FakeOriginAirportResolver(
+            resolve_result=lambda city: [" beg ", "BEG", "INI"] if city == "Belgrade" else []
+        ),
     )
 
     assert provider._resolve_airports("Belgrade") == ["BEG", "INI"]
 
 
 def test_resolve_airports_returns_empty_on_data_access_error() -> None:
-    def _raise_data_access_error(_: str) -> list[str]:
-        raise DataAccessError("db unavailable")
-
     provider = TravelpayoutsProvider(
         api_token=None,
         marker=None,
         base_url="https://api.travelpayouts.com",
         timeout_sec=3.0,
-        origin_airport_resolver=_raise_data_access_error,
+        origin_airport_resolver=_FakeOriginAirportResolver(error=DataAccessError("db unavailable")),
     )
 
     assert provider._resolve_airports("Belgrade") == []
@@ -52,7 +64,7 @@ def test_fetch_live_candidates_queries_all_origins_and_deduplicates(monkeypatch)
         marker=None,
         base_url="https://api.travelpayouts.com",
         timeout_sec=3.0,
-        origin_airport_resolver=lambda _: ["BEG", "INI"],
+        origin_airport_resolver=_FakeOriginAirportResolver(resolve_result=["BEG", "INI"]),
     )
 
     calls: list[str] = []

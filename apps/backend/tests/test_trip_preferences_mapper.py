@@ -1,6 +1,6 @@
 from app.api.mappers.trip_preferences_mapper import to_trip_preferences
 from app.api.schemas.search_request import SearchRequest
-from app.core.types import DatesMode
+from app.shared.enums import DatesMode
 
 
 def test_to_trip_preferences_maps_strict_payload() -> None:
@@ -22,21 +22,16 @@ def test_to_trip_preferences_maps_strict_payload() -> None:
     assert preferences.flexible_year is None
 
 
-def test_to_trip_preferences_maps_flexible_payload() -> None:
-    payload = SearchRequest(
-        origin_city="Belgrade",
-        dates_mode="flexible",
-        flexible_dates={"year": 2026, "month": 7, "trip_length_days": 7},
-        themes=["beach"],
-        budget_usd=1800,
-        travelers_count=2,
-    )
-
-    preferences = to_trip_preferences(payload)
-
-    assert preferences.dates_mode == DatesMode.flexible
-    assert preferences.flexible_year == 2026
-    assert preferences.flexible_month == 7
-    assert preferences.flexible_trip_length_days == 7
-    assert preferences.strict_start_date is None
-    assert preferences.strict_end_date is None
+def test_search_request_rejects_flexible_mode_until_implemented() -> None:
+    try:
+        SearchRequest(
+            origin_city="Belgrade",
+            dates_mode="flexible",
+            themes=["beach"],
+            budget_usd=1800,
+            travelers_count=2,
+        )
+    except ValueError as exc:
+        assert "future implementation" in str(exc)
+    else:
+        raise AssertionError("flexible mode should be rejected")

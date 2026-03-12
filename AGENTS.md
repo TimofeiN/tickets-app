@@ -1,7 +1,19 @@
-# Repository Rules
+## Repository
+- Branches:
+  use `feature/<feature_name>` and never use the `codex/` prefix.
+- Commits:
+  keep messages short and descriptive, and never use the `codex/` prefix.
+- Before commit:
+  run `make backend-check`; if format or lint fails, run `make backend-format`, and fix failing tests before commit.
+- Merge to `develop`:
+  always use a squash commit.
 
-- Never use the `codex/` prefix in branch names.
-- Never use the `codex/` prefix in commit messages.
-- Merge into `develop` must always be done via squash commit (single commit per feature branch merge).
-- Before commit: run `make backend-check`; if format/lint fails, run `make backend-format`; if tests fail, fix tests before commit.
-- Commit messages must be short and follow best practices.
+## Code Writing
+- Keep only code needed for the current scenario.
+- Do not add preparatory abstractions or future-facing helpers without a clear need.
+- When running backend tests or backend/dev scripts, run them in the container.
+
+## Execution Discipline
+- Follow the request exactly; do not expand scope without explicit instruction.
+- Do not perform additional actions, refactoring, or improvements unless explicitly asked.
+- If the request is unclear or ambiguous, ask clarifying questions before proceeding.

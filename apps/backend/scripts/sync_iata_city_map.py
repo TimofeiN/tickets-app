@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 from urllib.request import urlopen
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import ProgrammingError
 
+from app.core.settings import settings
 from app.infrastructure.db.models.iata_city_map import IataCityMap
 from app.infrastructure.db.session import get_session
 
@@ -93,8 +93,8 @@ def upsert_records(records: list[tuple[str, str, str, str, str, str]]) -> None:
 
 
 def main() -> None:
-    base_url = os.getenv("TRAVELPAYOUTS_DATA_BASE_URL", "https://api.travelpayouts.com/data")
-    lang = os.getenv("TRAVELPAYOUTS_DATA_LANG", "en")
+    base_url = settings.travelpayouts_data_base_url
+    lang = settings.travelpayouts_data_lang
 
     airports_url = f"{base_url.rstrip('/')}/{lang}/airports.json"
     cities_url = f"{base_url.rstrip('/')}/{lang}/cities.json"

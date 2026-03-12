@@ -1,4 +1,4 @@
-.PHONY: init up down logs ps backend-test backend-lint backend-check backend-format backend-db-upgrade backend-db-current backend-sync-iata frontend-lint frontend-build
+.PHONY: init up down logs ps backend-test backend-lint backend-check backend-format backend-db-upgrade backend-db-current backend-sync-iata backend-llm-smoke frontend-lint frontend-build
 
 init:
 	cp -n .env.example .env || true
@@ -35,6 +35,9 @@ backend-db-current:
 
 backend-sync-iata:
 	docker compose run --rm backend python scripts/sync_iata_city_map.py
+
+backend-llm-smoke:
+	docker compose run --rm backend python scripts/dev/manual_search_check.py
 
 frontend-lint:
 	docker compose run --rm frontend npm run lint && docker compose run --rm frontend npm run format

@@ -8,10 +8,11 @@
   - `infrastructure`: Travelpayouts/OpenAI providers + SQLModel repository/session
   - `core`: app config and logging
 - Main endpoint: `POST /search` with strict request validation and variable-length response (`1..3` options).
+- Current public contract is strict-date only; `flexible` mode is deferred to future implementation.
 - Search pipeline:
   1. Retrieve candidates from Travelpayouts live API when possible (async fan-out across all mapped origin airports).
   2. Fallback to internal dataset if provider is unavailable.
-  3. Apply rules filtering (budget-per-traveler + strict/flexible dates).
+  3. Apply rules filtering (budget-per-traveler + strict dates).
   4. Build deterministic shortlist (`LLM_SHORTLIST_LIMIT` bounded).
   5. Try LLM ranking with strict schema validation.
   6. Fallback to deterministic ranking if LLM is disabled/fails.
@@ -22,7 +23,7 @@
 - Response transparency:
   - `meta.data_source`: `live | fallback`
   - `meta.ranking_mode`: `llm | deterministic`
-  - `meta.constraints_relaxed`: whether response includes non-filtered options (budget/date constraints were relaxed)
+  - `meta.constraints_relaxed`: whether at least one returned option came from outside the original budget/date-filtered set
   - `meta.fallback_reasons`: degradation reasons (provider/LLM/relaxed constraints)
 
 ## Data and operations

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, create_engine
 
-from app.core.config import get_database_dsn
+from app.core.settings import settings
 
 _ENGINE: Engine | None = None
 
@@ -13,7 +13,7 @@ _ENGINE: Engine | None = None
 def get_engine() -> Engine:
     global _ENGINE
     if _ENGINE is None:
-        _ENGINE = create_engine(get_database_dsn(), pool_pre_ping=True)
+        _ENGINE = create_engine(settings.database_dsn, pool_pre_ping=True)
     return _ENGINE
 
 

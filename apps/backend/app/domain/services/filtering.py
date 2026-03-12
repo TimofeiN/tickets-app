@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.core.errors import DomainInvariantError
-from app.core.types import DatesMode
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
+from app.shared.enums import DatesMode
 
 
 def filter_candidates(

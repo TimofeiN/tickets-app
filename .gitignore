@@ -11,6 +11,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .venv/
+.ruff_cache/
 
 # Node
 node_modules/
@@ -27,6 +28,7 @@ coverage/
 
 # Local AI working notes/plans
 ai/
+.tmp_skills/
 
 # Backend local debug scripts (do not commit)
 apps/backend/scripts/dev/
