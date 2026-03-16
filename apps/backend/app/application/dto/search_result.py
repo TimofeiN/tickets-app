@@ -14,12 +14,13 @@ class SearchOptionResult:
     price_usd: int
     score: float
     reason: str
-    theme_explanation: str
-    highlights: tuple[str, ...]
-    tradeoff: str
-    caveat: str
-    trip_style: str
-    vibe: str
+    trip_plan: str
+    theme_explanation: str = ""
+    highlights: tuple[str, ...] = ()
+    tradeoff: str = ""
+    caveat: str = ""
+    trip_style: str = ""
+    vibe: str = ""
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,6 @@ class SearchMetaResult:
     data_source: SearchDataSource
     ranking_mode: RankingMode
     enrichment_mode: EnrichmentMode
-    constraints_relaxed: bool
     fallback_reasons: list[str]
 
 
@@ -42,3 +42,4 @@ class SearchResult:
     options: list[SearchOptionResult]
     guidance: SearchGuidanceResult
     meta: SearchMetaResult
+    trip_plan: str

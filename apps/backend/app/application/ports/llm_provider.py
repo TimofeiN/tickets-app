@@ -18,3 +18,11 @@ class LLMProvider(Protocol):
         user_prompt: str,
         output_model: type[BaseModel],
     ) -> str: ...
+
+    def render_trip_summary(
+        self,
+        *,
+        city: str,
+        num_days: int,
+        themes: str,
+    ) -> str: ...

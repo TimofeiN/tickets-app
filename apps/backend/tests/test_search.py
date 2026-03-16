@@ -1,165 +1,136 @@
+import json
 from datetime import date
+from typing import ClassVar
 
 from fastapi.testclient import TestClient
 
 from app.api.deps import get_search_service
-from app.application.ports.flight_search_provider import FlightSearchResult
+from app.application.ports.city_resolver import ResolvedCityName
+from app.application.ports.flight_search_provider import FlightOffer, FlightProviderResult
 from app.application.ports.llm_provider import LLMProviderError
-from app.application.services.enrichment_service import (
-    OptionInsight,
-    SearchEnrichment,
-    SearchGuidance,
-)
-from app.application.services.ranking_service import RankingService
 from app.application.services.search_service import SearchService
-from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.models.trip_preferences import TripPreferences
 from app.main import app
 from app.shared.enums import EnrichmentMode, SearchDataSource
 
 
-def _fixture_candidates() -> list[FlightCandidate]:
+def _fixture_offers() -> list[FlightOffer]:
     return [
-        FlightCandidate(
-            option_id="opt_bcn_001",
-            destination_city="Barcelona",
+        FlightOffer(
             origin_airport="BEG",
             destination_airport="BCN",
+            destination_city="Barcelona",
             price_usd=640,
             departure_date=date(2026, 6, 10),
             return_date=date(2026, 6, 17),
-            themes=frozenset({"beach", "history", "nightlife"}),
         ),
-        FlightCandidate(
-            option_id="opt_ath_002",
-            destination_city="Athens",
+        FlightOffer(
             origin_airport="BEG",
             destination_airport="ATH",
+            destination_city="Athens",
             price_usd=590,
             departure_date=date(2026, 6, 10),
             return_date=date(2026, 6, 17),
-            themes=frozenset({"history", "beach", "gastronomy"}),
         ),
-        FlightCandidate(
-            option_id="opt_lis_003",
-            destination_city="Lisbon",
+        FlightOffer(
             origin_airport="BEG",
             destination_airport="LIS",
+            destination_city="Lisbon",
             price_usd=710,
             departure_date=date(2026, 6, 10),
             return_date=date(2026, 6, 17),
-            themes=frozenset({"nightlife", "history", "beach"}),
         ),
     ]
 
 
 class _FakeFlightProvider:
-    def get_candidates(self, preferences: TripPreferences) -> FlightSearchResult:  # noqa: ARG002
-        return FlightSearchResult(candidates=_fixture_candidates(), source=SearchDataSource.live)
+    def __init__(self, offers: list[FlightOffer] | None = None) -> None:
+        self.offers = offers or _fixture_offers()
+
+    def get_offers(
+        self,
+        preferences: TripPreferences,
+        *,
+        origin_airports: list[str],
+    ) -> FlightProviderResult:
+        del preferences
+        assert origin_airports
+        return FlightProviderResult(offers=self.offers, source=SearchDataSource.live)
+
+
+class _TwoOptionFlightProvider(_FakeFlightProvider):
+    def __init__(self) -> None:
+        super().__init__(offers=_fixture_offers()[:2])
+
+
+class _FakeOriginAirportResolver:
+    def resolve_airports(self, origin_city: str) -> list[str]:
+        del origin_city
+        return ["BEG"]
 
 
 class _FakeCityResolver:
-    def resolve_city_names(self, iata_codes: list[str]) -> dict[str, str]:
-        return {code: f"City {code}" for code in iata_codes}
+    def resolve_city_names(self, iata_codes: list[str]) -> list[ResolvedCityName]:
+        return [ResolvedCityName(iata_code=code, city_name=f"City {code}") for code in iata_codes]
 
 
-class _SuccessfulRankingService:
-    def rank(self, preferences: TripPreferences, shortlist: list[FlightCandidate]):  # noqa: ARG002
-        from app.domain.models.ranking_result import RankedOption, RankingResult
+class _SuccessfulLLMProvider:
+    _scores_by_option_id: ClassVar[dict[str, tuple[float, float, tuple[str, ...], str]]] = {
+        "tp_beg_ath_002": (0.95, 0.85, ("beach", "history"), "Best overall fit."),
+        "tp_beg_bcn_001": (0.88, 0.80, ("beach", "history"), "Great cultural match."),
+        "tp_beg_lis_003": (0.80, 0.72, ("beach",), "Solid backup choice."),
+    }
 
-        return RankingResult(
-            ranked_options=(
-                RankedOption(option_id="opt_ath_002", reason="Best overall fit."),
-                RankedOption(option_id="opt_bcn_001", reason="Great cultural match."),
-                RankedOption(option_id="opt_lis_003", reason="Solid backup choice."),
+    def complete(self, *, system_prompt: str, user_prompt: str, output_model):
+        del system_prompt, output_model
+        payload = json.loads(user_prompt)
+        shortlist = payload["shortlist"]
+        scores: list[dict[str, object]] = []
+        for item in shortlist:
+            option_id = item["option_id"]
+            score = self._scores_by_option_id.get(
+                option_id,
+                (0.5, 0.5, (), "Neutral fit."),
             )
-        )
+            scores.append(
+                {
+                    "option_id": option_id,
+                    "theme_fit_score": score[0],
+                    "confidence": score[1],
+                    "matched_themes": list(score[2]),
+                    "reason_short": score[3],
+                }
+            )
+        return json.dumps({"scores": scores})
+
+    def render_trip_summary(self, *, city: str, num_days: int, themes: str) -> str:
+        return f"{city} for {num_days} days with {themes}"
 
 
-class _FailingRankingService:
-    def rank(self, preferences: TripPreferences, shortlist: list[FlightCandidate]):  # noqa: ARG002
+class _FailingSemanticLLMProvider(_SuccessfulLLMProvider):
+    def complete(self, *, system_prompt: str, user_prompt: str, output_model):
+        del system_prompt, user_prompt, output_model
         raise LLMProviderError("upstream timeout")
 
 
-class _FakeEnrichmentService:
-    def enrich(
-        self,
-        preferences: TripPreferences,  # noqa: ARG002
-        candidates: list[FlightCandidate],
-        context,  # noqa: ANN001, ARG002
-    ) -> SearchEnrichment:
-        return SearchEnrichment(
-            insights_by_option_id={
-                candidate.option_id: OptionInsight(
-                    option_id=candidate.option_id,
-                    theme_explanation=f"Theme explanation for {candidate.option_id}.",
-                    highlights=("Highlight A", "Highlight B"),
-                    tradeoff=f"Tradeoff for {candidate.option_id}.",
-                    caveat=f"Caveat for {candidate.option_id}.",
-                    trip_style="City break",
-                    vibe="Balanced city energy",
-                )
-                for candidate in candidates
-            },
-            guidance=SearchGuidance(
-                improvement_hint="Improve by narrowing the theme mix.",
-                counterfactual="If nightlife leads, a different city could rank first.",
-            ),
-        )
-
-
-class _TwoOptionFlightProvider:
-    def get_candidates(self, preferences: TripPreferences) -> FlightSearchResult:  # noqa: ARG002
-        return FlightSearchResult(
-            candidates=_fixture_candidates()[:2],
-            source=SearchDataSource.live,
-        )
-
-
-class _RelaxedConstraintsFlightProvider:
-    def get_candidates(self, preferences: TripPreferences) -> FlightSearchResult:  # noqa: ARG002
-        return FlightSearchResult(
-            candidates=[
-                FlightCandidate(
-                    option_id="opt_keep_001",
-                    destination_city="Barcelona",
-                    origin_airport="BEG",
-                    destination_airport="BCN",
-                    price_usd=500,
-                    departure_date=date(2026, 6, 10),
-                    return_date=date(2026, 6, 17),
-                    themes=frozenset({"beach", "history"}),
-                ),
-                FlightCandidate(
-                    option_id="opt_relaxed_002",
-                    destination_city="Athens",
-                    origin_airport="BEG",
-                    destination_airport="ATH",
-                    price_usd=1500,
-                    departure_date=date(2026, 6, 10),
-                    return_date=date(2026, 6, 17),
-                    themes=frozenset({"beach", "history"}),
-                ),
-            ],
-            source=SearchDataSource.live,
-        )
-
-
 def _override_search_service(
-    ranking_service: RankingService,
+    llm_provider: object,
     *,
     flight_provider: object | None = None,
 ) -> SearchService:
     return SearchService(
         flight_provider=flight_provider or _FakeFlightProvider(),
+        origin_airport_resolver=_FakeOriginAirportResolver(),
         city_resolver=_FakeCityResolver(),
-        ranking_service_factory=lambda: ranking_service,
-        enrichment_service_factory=lambda: _FakeEnrichmentService(),  # type: ignore[arg-type]
-        shortlist_limit=8,
+        semantic_scoring_provider=llm_provider,  # type: ignore[arg-type]
+        enrichment_provider=llm_provider,  # type: ignore[arg-type]
     )
 
 
 def test_search_strict_dates_success() -> None:
+    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
+        _SuccessfulLLMProvider()
+    )
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -174,6 +145,7 @@ def test_search_strict_dates_success() -> None:
     }
 
     response = client.post("/search", json=payload)
+    app.dependency_overrides.clear()
 
     assert response.status_code == 200
     body = response.json()
@@ -183,7 +155,6 @@ def test_search_strict_dates_success() -> None:
     assert body["meta"]["data_source"] in {"live", "fallback"}
     assert body["meta"]["ranking_mode"] in {"llm", "deterministic"}
     assert body["meta"]["enrichment_mode"] in {"llm", "unavailable"}
-    assert isinstance(body["meta"]["constraints_relaxed"], bool)
     assert isinstance(body["meta"]["fallback_reasons"], list)
 
     for option in body["options"]:
@@ -206,6 +177,9 @@ def test_search_strict_dates_success() -> None:
 
 
 def test_search_requires_matching_dates_payload() -> None:
+    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
+        _SuccessfulLLMProvider()
+    )
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -215,13 +189,14 @@ def test_search_requires_matching_dates_payload() -> None:
     }
 
     response = client.post("/search", json=payload)
+    app.dependency_overrides.clear()
 
     assert response.status_code == 422
 
 
 def test_search_uses_llm_ranking_when_available() -> None:
     app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _SuccessfulRankingService()  # type: ignore[arg-type]
+        _SuccessfulLLMProvider()
     )
     client = TestClient(app)
     payload = {
@@ -242,27 +217,27 @@ def test_search_uses_llm_ranking_when_available() -> None:
     assert response.status_code == 200
     body = response.json()
     assert [item["option_id"] for item in body["options"]] == [
-        "opt_ath_002",
-        "opt_bcn_001",
-        "opt_lis_003",
+        "tp_beg_ath_002",
+        "tp_beg_bcn_001",
+        "tp_beg_lis_003",
     ]
     assert [item["reason"] for item in body["options"]] == [
         "Best overall fit.",
         "Great cultural match.",
         "Solid backup choice.",
     ]
-    assert body["options"][0]["theme_explanation"] == "Theme explanation for opt_ath_002."
-    assert body["options"][0]["highlights"] == ["Highlight A", "Highlight B"]
-    assert body["guidance"]["improvement_hint"] == "Improve by narrowing the theme mix."
+    assert body["options"][0]["trip_plan"] == "City ATH for 7 days with beach, history"
+    assert body["options"][0]["theme_explanation"] == ""
+    assert body["options"][0]["highlights"] == []
+    assert body["guidance"]["improvement_hint"] == ""
     assert body["meta"]["data_source"] == "live"
     assert body["meta"]["ranking_mode"] == "llm"
     assert body["meta"]["enrichment_mode"] == EnrichmentMode.llm
-    assert body["meta"]["constraints_relaxed"] is False
 
 
 def test_search_falls_back_to_deterministic_ranking_on_llm_failure() -> None:
     app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _FailingRankingService()  # type: ignore[arg-type]
+        _FailingSemanticLLMProvider()
     )
     client = TestClient(app)
     payload = {
@@ -284,18 +259,19 @@ def test_search_falls_back_to_deterministic_ranking_on_llm_failure() -> None:
     body = response.json()
     assert len(body["options"]) == 3
     assert [item["option_id"] for item in body["options"]] == [
-        "opt_ath_002",
-        "opt_bcn_001",
-        "opt_lis_003",
+        "tp_beg_ath_002",
+        "tp_beg_bcn_001",
+        "tp_beg_lis_003",
     ]
     assert body["meta"]["data_source"] == "live"
     assert body["meta"]["ranking_mode"] == "deterministic"
     assert body["meta"]["enrichment_mode"] == EnrichmentMode.llm
+    assert "ranking_unavailable" in body["meta"]["fallback_reasons"]
 
 
-def test_search_can_return_two_options_without_relaxing_constraints() -> None:
+def test_search_can_return_two_options() -> None:
     app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _FailingRankingService(),  # type: ignore[arg-type]
+        _FailingSemanticLLMProvider(),
         flight_provider=_TwoOptionFlightProvider(),
     )
     client = TestClient(app)
@@ -318,36 +294,3 @@ def test_search_can_return_two_options_without_relaxing_constraints() -> None:
     body = response.json()
     assert len(body["options"]) == 2
     assert body["meta"]["enrichment_mode"] == EnrichmentMode.llm
-    assert body["meta"]["constraints_relaxed"] is False
-
-
-def test_search_marks_constraints_relaxed_when_fallback_includes_non_filtered_option() -> None:
-    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _FailingRankingService(),  # type: ignore[arg-type]
-        flight_provider=_RelaxedConstraintsFlightProvider(),
-    )
-    client = TestClient(app)
-    payload = {
-        "origin_city": "Belgrade",
-        "dates_mode": "strict",
-        "strict_dates": {
-            "start_date": "2026-06-10",
-            "end_date": "2026-06-17",
-        },
-        "themes": ["beach", "history"],
-        "budget_usd": 1000,
-        "travelers_count": 2,
-    }
-
-    response = client.post("/search", json=payload)
-    app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    body = response.json()
-    assert len(body["options"]) == 2
-    assert body["meta"]["enrichment_mode"] == EnrichmentMode.llm
-    assert body["meta"]["constraints_relaxed"] is True
-    assert (
-        "constraints relaxed: included options outside budget/date filters"
-        in body["meta"]["fallback_reasons"]
-    )

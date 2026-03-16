@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { createElement, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8100";
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const THEMES = [
   { value: "beach", label: "Beach" },
   { value: "history", label: "History" },
@@ -11,10 +13,20 @@ const THEMES = [
   { value: "nightlife", label: "Nightlife" },
 ];
 
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const DEFAULT_START_DATE = toDateInputValue(new Date());
+const DEFAULT_END_DATE = toDateInputValue(new Date(Date.now() + 3 * DAY_IN_MS));
+
 export default function App() {
   const [originCity, setOriginCity] = useState("Belgrade");
-  const [startDate, setStartDate] = useState("2026-06-10");
-  const [endDate, setEndDate] = useState("2026-06-17");
+  const [startDate, setStartDate] = useState(DEFAULT_START_DATE);
+  const [endDate, setEndDate] = useState(DEFAULT_END_DATE);
   const [budgetUsd, setBudgetUsd] = useState("2000");
   const [themes, setThemes] = useState(["beach", "history"]);
   const [result, setResult] = useState(null);
@@ -65,8 +77,18 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorBody = await response.json();
-        throw new Error(errorBody?.detail?.[0]?.msg || "Search request failed");
+        let errorMessage = "Search request failed";
+        try {
+          const errorBody = await response.json();
+          errorMessage =
+            errorBody?.error?.message ||
+            errorBody?.detail?.[0]?.msg ||
+            errorBody?.detail ||
+            errorMessage;
+        } catch {
+          // keep default message when response body is not JSON
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -77,6 +99,7 @@ export default function App() {
           counterfactual: "",
         },
         meta: data.meta || null,
+        trip_plan: data.trip_plan || "",
       });
     } catch (error) {
       setResult(null);
@@ -166,20 +189,12 @@ export default function App() {
           <div className="meta-panel">
             <span className="meta-pill">Source: {meta.data_source}</span>
             <span className="meta-pill">Ranking: {meta.ranking_mode}</span>
-            <span className="meta-pill">Enrichment: {meta.enrichment_mode}</span>
+            <span className="meta-pill">
+              Enrichment: {meta.enrichment_mode}
+            </span>
             <span className="meta-pill">
               Constraints relaxed: {meta.constraints_relaxed ? "yes" : "no"}
             </span>
-          </div>
-        ) : null}
-        {meta?.fallback_reasons?.length ? (
-          <div className="guidance-card">
-            <h3>Runtime notes</h3>
-            <ul className="plain-list">
-              {meta.fallback_reasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
           </div>
         ) : null}
         {guidance.improvement_hint || guidance.counterfactual ? (
@@ -216,6 +231,15 @@ export default function App() {
               </div>
 
               <p className="lead">{option.reason}</p>
+
+              {option.trip_plan ? (
+                <section className="card-section">
+                  <h4>Trip plan</h4>
+                  <div className="markdown-body">
+                    {createElement(ReactMarkdown, null, option.trip_plan)}
+                  </div>
+                </section>
+              ) : null}
 
               {option.theme_explanation ? (
                 <section className="card-section">

@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_search_service
@@ -12,7 +14,7 @@ router = APIRouter()
 @router.post("/search", response_model=SearchResponse)
 def search(
     payload: SearchRequest,
-    service: SearchService = Depends(get_search_service),
+    service: Annotated[SearchService, Depends(get_search_service)],
 ) -> SearchResponse:
     preferences = to_trip_preferences(payload)
     result = service.search(preferences)

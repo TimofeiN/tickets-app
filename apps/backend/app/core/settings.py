@@ -18,6 +18,8 @@ class Settings(BaseSettings):
         default=("postgresql+psycopg://tickets_user:tickets_password@postgres:5432/tickets_app"),
         alias="DATABASE_URL",
     )
+
+    # tickets provider
     travelpayouts_api_token: str | None = Field(default=None, alias="TRAVELPAYOUTS_API_TOKEN")
     travelpayouts_marker: str | None = Field(default=None, alias="TRAVELPAYOUTS_MARKER")
     travelpayouts_base_url: str = Field(
@@ -34,19 +36,22 @@ class Settings(BaseSettings):
         alias="TRAVELPAYOUTS_DATA_BASE_URL",
     )
     travelpayouts_data_lang: str = Field(default="en", alias="TRAVELPAYOUTS_DATA_LANG")
-    openai_api_key: str = Field(default="", alias="LLM_API_KEY")
-    openai_model: str = Field(default="", alias="LLM_MODEL")
-    openai_base_url: str = Field(default="https://api.openai.com", alias="LLM_BASE_URL")
-    openai_timeout_sec: float = Field(default=5.0, ge=0.5, alias="LLM_TIMEOUT_SEC")
-    openai_max_tokens: int = Field(default=300, ge=64, le=1500, alias="LLM_MAX_TOKENS")
-    openai_retry_count: int = Field(default=1, ge=0, le=3, alias="LLM_RETRY_COUNT")
+
+    # openai provider
+    openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
+    openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
+    openai_timeout_sec: float = Field(default=20.0, ge=0.5, alias="OPENAI_TIMEOUT_SEC")
+    openai_max_tokens: int = Field(default=300, ge=64, le=1500, alias="OPENAI_MAX_TOKENS")
+    openai_retry_count: int = Field(default=1, ge=0, le=3, alias="OPENAI_RETRY_COUNT")
     openai_retry_backoff_ms: int = Field(
         default=150,
         ge=50,
         le=5000,
-        alias="LLM_RETRY_BACKOFF_MS",
+        alias="OPENAI_RETRY_BACKOFF_MS",
     )
-    llm_shortlist_limit: int = Field(default=8, ge=3, le=12, alias="LLM_SHORTLIST_LIMIT")
+
+    # app config
+    shortlist_limit: int = Field(default=8, ge=3, le=12)
 
 
 @lru_cache(maxsize=1)

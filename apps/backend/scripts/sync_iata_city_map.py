@@ -82,7 +82,7 @@ def upsert_records(records: list[tuple[str, str, str, str, str, str]]) -> None:
             },
         )
         with get_session() as session:
-            session.exec(statement)
+            session.execute(statement)
             session.commit()
     except ProgrammingError as exc:
         if "iata_city_map" in str(exc).lower():

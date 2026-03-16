@@ -7,6 +7,9 @@
   run `make backend-check`; if format or lint fails, run `make backend-format`, and fix failing tests before commit.
 - Merge to `develop`:
   always use a squash commit.
+  For squash merges into `develop`, keep a short subject line and include the
+  merged branch commits in the commit message body, similar to the default
+  GitHub squash-merge message.
 
 ## Code Writing
 - Keep only code needed for the current scenario.

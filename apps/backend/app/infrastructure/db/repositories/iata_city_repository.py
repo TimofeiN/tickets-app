@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import select
+from sqlmodel import col, select
 
-from app.application.ports.city_resolver import CityResolver
+from app.application.ports.city_resolver import CityResolver, ResolvedCityName
 from app.core.errors import DataAccessError
 from app.infrastructure.db.models.iata_city_map import IataCityMap
 from app.infrastructure.db.session import get_session
@@ -15,15 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class IataCityRepository(CityResolver):
-    def resolve_city_names(self, iata_codes: list[str]) -> dict[str, str]:
+    def resolve_city_names(self, iata_codes: list[str]) -> list[ResolvedCityName]:
         normalized_codes = sorted({code.strip().upper() for code in iata_codes if code.strip()})
         if not normalized_codes:
-            return {}
+            return []
 
         try:
             with get_session() as session:
                 by_iata_rows = session.exec(
-                    select(IataCityMap).where(IataCityMap.iata_code.in_(normalized_codes))
+                    select(IataCityMap).where(col(IataCityMap.iata_code).in_(normalized_codes))
                 ).all()
 
                 unresolved = [
@@ -31,14 +32,14 @@ class IataCityRepository(CityResolver):
                     for code in normalized_codes
                     if code not in {row.iata_code.upper() for row in by_iata_rows}
                 ]
-                by_city_code_rows: list[tuple[str, str]] = []
+                by_city_code_rows: Sequence[tuple[str, str]] = ()
                 if unresolved:
                     by_city_code_rows = session.exec(
                         select(
                             IataCityMap.city_code,
                             func.min(IataCityMap.city_name),
                         )
-                        .where(IataCityMap.city_code.in_(unresolved))
+                        .where(col(IataCityMap.city_code).in_(unresolved))
                         .group_by(IataCityMap.city_code)
                     ).all()
         except SQLAlchemyError as exc:
@@ -62,4 +63,8 @@ class IataCityRepository(CityResolver):
             len(normalized_codes),
             len(resolved),
         )
-        return resolved
+        return [
+            ResolvedCityName(iata_code=code, city_name=resolved[code])
+            for code in normalized_codes
+            if code in resolved
+        ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from openai import APIError
 
 from app.infrastructure.providers.openai_provider import (
     LLMProviderError,
@@ -15,48 +16,53 @@ class _OutputModel(StrictModel):
     value: str
 
 
-class _FakeAsyncClient:
-    def __init__(self, responses):  # noqa: ANN001
-        self._responses = list(responses)
+class _FakeParsedResponse:
+    def __init__(self, parsed: object) -> None:
+        self.output_parsed = parsed
+        self.incomplete_details = None
+        self.output: list[object] = []
+        self.usage = None
+        self.model = "gpt-test"
+        self.status = "completed"
 
-    async def __aenter__(self) -> "_FakeAsyncClient":
-        return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001
-        return False
+class _FakeResponsesClient:
+    def __init__(self, parsed: object | None = None, exc: Exception | None = None) -> None:
+        self._parsed = parsed
+        self._exc = exc
 
-    async def post(self, path: str, json: dict[str, object]):  # noqa: ANN001, A002
-        del path, json
-        item = self._responses.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return item
+    def parse(self, **kwargs):
+        del kwargs
+        if self._exc is not None:
+            raise self._exc
+        return _FakeParsedResponse(self._parsed)
+
+
+class _FakeOpenAIClient:
+    def __init__(self, responses_client: _FakeResponsesClient) -> None:
+        self.responses = responses_client
 
 
 def _api() -> OpenAIProvider:
-    return OpenAIProvider(
+    provider = OpenAIProvider(
         OpenAIProviderConfig(
             api_key="test-key",
             model="gpt-test",
-            base_url="https://example.test",
+            base_url="https://example.test/v1",
             timeout_sec=1.0,
             max_tokens=256,
             retry_count=1,
             retry_backoff_ms=1,
         )
     )
+    return provider
 
 
-def test_openai_api_returns_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    provider_body = {"choices": [{"message": {"content": '{"value":"ok"}'}}]}
-    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
-    response = httpx.Response(200, request=request, json=provider_body)
-    monkeypatch.setattr(
-        "app.infrastructure.providers.openai_provider.httpx.AsyncClient",
-        lambda **kwargs: _FakeAsyncClient([response]),  # noqa: ARG005
-    )
+def test_openai_api_returns_content() -> None:
+    provider = _api()
+    provider.client = _FakeOpenAIClient(_FakeResponsesClient(parsed={"value": "ok"}))  # type: ignore[assignment]
 
-    output = _api().complete(
+    output = provider.complete(
         system_prompt="system",
         user_prompt="user",
         output_model=_OutputModel,
@@ -65,21 +71,20 @@ def test_openai_api_returns_content(monkeypatch: pytest.MonkeyPatch) -> None:
     assert output == '{"value":"ok"}'
 
 
-def test_openai_api_retries_then_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
-    monkeypatch.setattr(
-        "app.infrastructure.providers.openai_provider.httpx.AsyncClient",
-        lambda **kwargs: _FakeAsyncClient(  # noqa: ARG005
-            [
-                httpx.ConnectError("timeout", request=request),
-                httpx.ConnectError("timeout", request=request),
-            ]
-        ),
-    )
-    monkeypatch.setattr("app.infrastructure.providers.openai_provider.time.sleep", lambda _: None)
+def test_openai_api_wraps_sdk_errors() -> None:
+    provider = _api()
+    provider.client = _FakeOpenAIClient(
+        _FakeResponsesClient(
+            exc=APIError(
+                "boom",
+                request=httpx.Request("POST", "https://example.test/v1/responses"),
+                body=None,
+            )
+        )
+    )  # type: ignore[assignment]
 
     with pytest.raises(LLMProviderError):
-        _api().complete(
+        provider.complete(
             system_prompt="system",
             user_prompt="user",
             output_model=_OutputModel,

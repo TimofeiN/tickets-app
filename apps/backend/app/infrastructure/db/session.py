@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from sqlalchemy.engine import Engine
@@ -18,6 +19,6 @@ def get_engine() -> Engine:
 
 
 @contextmanager
-def get_session() -> Session:
+def get_session() -> Iterator[Session]:
     with Session(get_engine()) as session:
         yield session

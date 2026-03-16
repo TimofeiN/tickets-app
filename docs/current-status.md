@@ -3,7 +3,7 @@
 ## Backend architecture (current)
 - Layered backend structure is in place:
   - `api`: HTTP routers + request/response schemas + dependency wiring
-  - `application`: search orchestration + ranking service + ports
+  - `application`: search orchestration + factual shortlist + semantic scoring + enrichment
   - `domain`: pure models and rules (filtering/scoring)
   - `infrastructure`: Travelpayouts/OpenAI providers + SQLModel repository/session
   - `core`: app config and logging
@@ -12,19 +12,19 @@
 - Search pipeline:
   1. Retrieve candidates from Travelpayouts live API when possible (async fan-out across all mapped origin airports).
   2. Fallback to internal dataset if provider is unavailable.
-  3. Apply rules filtering (budget-per-traveler + strict dates).
-  4. Build deterministic shortlist (`LLM_SHORTLIST_LIMIT` bounded).
-  5. Try LLM ranking with strict schema validation.
-  6. Fallback to deterministic ranking if LLM is disabled/fails.
+  3. Apply rules filtering (budget-per-traveler + strict dates) and build factual shortlist.
+  4. Deduplicate by destination and prefer better factual options by price, then stops, then travel time when available.
+  5. Try LLM semantic scoring with strict schema validation.
+  6. Combine semantic score with factual score for final ranking.
+  7. Fallback to factual-only ranking if LLM semantic scoring is disabled/fails.
   7. Return up to 3 options (1..3):
-     - deterministic selection prefers cheapest options,
-     - keeps destination diversity (unique `destination_airport`),
+     - ranking remains destination-diverse (unique `destination_airport`),
      - may return fewer than 3 if there are not enough unique destinations.
 - Response transparency:
   - `meta.data_source`: `live | fallback`
-  - `meta.ranking_mode`: `llm | deterministic`
+  - `meta.ranking_mode`: `llm | deterministic` (`deterministic` means factual-only fallback)
   - `meta.constraints_relaxed`: whether at least one returned option came from outside the original budget/date-filtered set
-  - `meta.fallback_reasons`: degradation reasons (provider/LLM/relaxed constraints)
+  - `meta.fallback_reasons`: machine-readable degradation codes without internal error details
 
 ## Data and operations
 - Local mapping table `iata_city_map` is used for destination city resolution by airport/city IATA code.
@@ -36,11 +36,11 @@
 ## Local run
 - `make init`
 - `make up`
-- frontend: `http://localhost:3000`
-- backend health: `http://localhost:8000/health`
-- postgres host port: `5433`
+- frontend: `http://localhost:3100`
+- backend health: `http://localhost:8100/health`
+- postgres host port: `15432`
 
 ## Quality gates
 - Backend checks: `make backend-check` (ruff + format check + pytest).
 - Frontend checks: `make frontend-lint` and `make frontend-build`.
-- Current backend test suite covers health, request validation, filtering, LLM ranking success/failure paths.
+- Current backend test suite covers health, request validation, factual shortlist, semantic scoring, final ranking, and search success/failure paths.

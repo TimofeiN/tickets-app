@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class DatesMode(str, Enum):
+class DatesMode(StrEnum):
     strict = "strict"
     flexible = "flexible"
 
 
-class TripTheme(str, Enum):
+class TripTheme(StrEnum):
     beach = "beach"
     history = "history"
     active_summer = "active_summer"
@@ -18,16 +18,16 @@ class TripTheme(str, Enum):
     nightlife = "nightlife"
 
 
-class SearchDataSource(str, Enum):
+class SearchDataSource(StrEnum):
     live = "live"
     fallback = "fallback"
 
 
-class RankingMode(str, Enum):
+class RankingMode(StrEnum):
     llm = "llm"
     deterministic = "deterministic"
 
 
-class EnrichmentMode(str, Enum):
+class EnrichmentMode(StrEnum):
     llm = "llm"
     unavailable = "unavailable"

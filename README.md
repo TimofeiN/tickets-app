@@ -21,25 +21,16 @@ Monorepo for travel search MVP (frontend + backend + postgres).
 1. `make init`
 2. Fill `.env`:
    - `TRAVELPAYOUTS_API_TOKEN`
-   - `LLM_API_KEY`
-   - `LLM_MODEL` (for example `gpt-4.1-mini`)
+   - `OPENAI_API_KEY`
 3. `make up`
 4. If needed, run `make backend-db-upgrade`
-5. Open frontend: `http://localhost:3000`
-6. Backend health: `http://localhost:8000/health`
+5. Open frontend: `http://localhost:3100`
+6. Backend health: `http://localhost:8100/health`
 
 ## OpenAI setup
-- Local env template already includes all required OpenAI vars in `.env.example`.
+- Local env template already includes the required OpenAI var in `.env.example`.
 - Minimum required vars for LLM features:
-  - `LLM_API_KEY=<your key>`
-  - `LLM_MODEL=gpt-4.1-mini`
-- Optional tuning vars:
-  - `LLM_BASE_URL`
-  - `LLM_TIMEOUT_SEC`
-  - `LLM_MAX_TOKENS`
-  - `LLM_RETRY_COUNT`
-  - `LLM_RETRY_BACKOFF_MS`
-  - `LLM_SHORTLIST_LIMIT`
+  - `OPENAI_API_KEY=<your key>`
 - End-to-end smoke check after startup:
   - `make backend-llm-smoke`
 - This smoke command prints:
@@ -49,9 +40,16 @@ Monorepo for travel search MVP (frontend + backend + postgres).
   - option-level enrichment
   - result-level guidance
 
+## Backend dependencies
+- Backend dependency source of truth: `apps/backend/pyproject.toml` + `apps/backend/uv.lock`.
+- Sync local `.venv` for IDE and local tooling:
+  - `make backend-sync`
+- Docker backend image installs from the same lockfile via `uv sync --frozen --extra dev`.
+
 ## Common commands
 - `make ps`
 - `make logs`
+- `make backend-sync`
 - `make backend-test`
 - `make backend-lint`
 - `make backend-check`

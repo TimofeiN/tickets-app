@@ -8,7 +8,7 @@ from app.infrastructure.db.models.iata_city_map import IataCityMap
 from app.infrastructure.db.repositories.origin_airport_repository import OriginAirportRepository
 
 
-def test_resolve_airports_returns_only_airport_rows(monkeypatch) -> None:  # noqa: ANN001
+def test_resolve_airports_returns_only_airport_rows(monkeypatch) -> None:
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
 

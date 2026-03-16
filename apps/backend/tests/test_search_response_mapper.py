@@ -22,6 +22,7 @@ def _option(
         price_usd=price_usd,
         score=score,
         reason="Strong thematic fit.",
+        trip_plan="Day 1: arrival. Day 2: explore.",
         theme_explanation="Theme-led explanation.",
         highlights=("Highlight A", "Highlight B"),
         tradeoff="A clear tradeoff.",
@@ -46,9 +47,9 @@ def test_search_response_from_contract_maps_fields() -> None:
             data_source=SearchDataSource.fallback,
             ranking_mode=RankingMode.deterministic,
             enrichment_mode=EnrichmentMode.llm,
-            constraints_relaxed=True,
-            fallback_reasons=["provider fallback: timeout"],
+            fallback_reasons=["provider_unavailable"],
         ),
+        trip_plan="Day 1: arrival. Day 2: explore.",
     )
 
     response = SearchResponse.from_contract(result)
@@ -56,10 +57,10 @@ def test_search_response_from_contract_maps_fields() -> None:
     assert response.meta.data_source == SearchDataSource.fallback
     assert response.meta.ranking_mode == RankingMode.deterministic
     assert response.meta.enrichment_mode == EnrichmentMode.llm
-    assert response.meta.constraints_relaxed is True
-    assert response.meta.fallback_reasons == ["provider fallback: timeout"]
+    assert response.meta.fallback_reasons == ["provider_unavailable"]
     assert [item.option_id for item in response.options] == ["opt_001", "opt_002", "opt_003"]
     assert response.options[0].theme_explanation == "Theme-led explanation."
+    assert response.options[0].trip_plan == "Day 1: arrival. Day 2: explore."
     assert response.options[0].highlights == ["Highlight A", "Highlight B"]
     assert response.options[0].trip_style == "City break"
     assert response.guidance.improvement_hint == "Improve by narrowing the theme mix."
@@ -79,9 +80,9 @@ def test_search_response_from_contract_accepts_less_than_three_options() -> None
             data_source=SearchDataSource.live,
             ranking_mode=RankingMode.deterministic,
             enrichment_mode=EnrichmentMode.unavailable,
-            constraints_relaxed=True,
-            fallback_reasons=["constraints relaxed: included options outside budget/date filters"],
+            fallback_reasons=[],
         ),
+        trip_plan="",
     )
 
     response = SearchResponse.from_contract(result)
@@ -89,7 +90,7 @@ def test_search_response_from_contract_accepts_less_than_three_options() -> None
     assert len(response.options) == 2
 
 
-def test_search_response_from_contract_allows_single_option_without_relaxed_constraints() -> None:
+def test_search_response_from_contract_allows_single_option() -> None:
     result = SearchResult(
         options=[
             _option("opt_001", "BCN", 640, 0.92),
@@ -102,12 +103,11 @@ def test_search_response_from_contract_allows_single_option_without_relaxed_cons
             data_source=SearchDataSource.live,
             ranking_mode=RankingMode.deterministic,
             enrichment_mode=EnrichmentMode.unavailable,
-            constraints_relaxed=False,
             fallback_reasons=[],
         ),
+        trip_plan="",
     )
 
     response = SearchResponse.from_contract(result)
 
     assert len(response.options) == 1
-    assert response.meta.constraints_relaxed is False

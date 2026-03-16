@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 
 
-@dataclass(frozen=True)
+@dataclass
 class FlightCandidate:
     option_id: str
     destination_city: str
@@ -14,3 +14,6 @@ class FlightCandidate:
     departure_date: date
     return_date: date
     themes: frozenset[str]
+    stops_count: int | None = None
+    travel_time_minutes: int | None = None
+    resolved_city_name: str = ""

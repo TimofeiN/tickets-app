@@ -1,9 +1,12 @@
-.PHONY: init up down logs ps backend-test backend-lint backend-check backend-format backend-db-upgrade backend-db-current backend-sync-iata backend-llm-smoke frontend-lint frontend-build
+.PHONY: init up down logs ps be-sync be-deps be-test be-lint be-check be-format be-db-upgrade be-db-current be-sync-iata be-llm-smoke fe-lint fe-format fe-build
 
 init:
 	cp -n .env.example .env || true
 
 up:
+	docker compose up -d
+
+up-build:
 	docker compose up --build -d
 
 down:
@@ -15,32 +18,42 @@ logs:
 ps:
 	docker compose ps
 
-backend-test:
+be-deps:
+	cd apps/backend && uv sync --extra dev
+	docker compose build backend
+
+be-test:
 	docker compose run --rm backend pytest
 
-backend-lint:
-	docker compose run --rm backend ruff check .
+be-lint:
+	docker compose run --rm backend bash -c 'ruff check . && ruff format . --check'
 
-backend-check:
-	docker compose run --rm backend ruff check . && docker compose run --rm backend ruff format . --check && docker compose run --rm backend pytest
+be-mypy:
+	docker compose run --rm backend mypy .
 
-backend-format:
+be-check:
+	docker compose run --rm backend ruff check . && docker compose run --rm backend ruff format . --check && docker compose run --rm backend mypy . && docker compose run --rm backend pytest
+
+be-format:
 	docker compose run --rm backend ruff check . --fix && docker compose run --rm backend ruff format .
 
-backend-db-upgrade:
+be-db-upgrade:
 	docker compose run --rm backend alembic -c alembic.ini upgrade head
 
-backend-db-current:
+be-db-current:
 	docker compose run --rm backend alembic -c alembic.ini current
 
-backend-sync-iata:
+be-sync-iata:
 	docker compose run --rm backend python scripts/sync_iata_city_map.py
 
-backend-llm-smoke:
+be-llm-smoke:
 	docker compose run --rm backend python scripts/dev/manual_search_check.py
 
-frontend-lint:
+fe-lint:
 	docker compose run --rm frontend npm run lint && docker compose run --rm frontend npm run format
 
-frontend-build:
+fe-format:
+	docker compose run --rm frontend npm run lint:fix && docker compose run --rm frontend npm run format:write
+
+fe-build:
 	docker compose run --rm frontend npm run build
