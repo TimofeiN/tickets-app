@@ -5,39 +5,41 @@ from collections import defaultdict
 
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import col, select
+from sqlmodel import Session, col, select
 
 from app.application.ports.origin_airport_resolver import OriginAirportResolver
 from app.core.errors import DataAccessError
 from app.infrastructure.db.models.iata_city_map import IataCityMap
-from app.infrastructure.db.session import get_session
 
 logger = logging.getLogger(__name__)
 
 
 class OriginAirportRepository(OriginAirportResolver):
+    def __init__(self, *, session: Session) -> None:
+        self.session = session
+
     def resolve_airports(self, origin_city: str) -> list[str]:
         normalized_city = origin_city.strip().lower()
         if not normalized_city:
             return []
 
         try:
-            with get_session() as session:
-                rows = session.exec(
-                    select(
-                        IataCityMap.iata_code,
-                        IataCityMap.city_code,
-                        IataCityMap.country_code,
-                    )
-                    .where(func.lower(col(IataCityMap.city_name)) == normalized_city)
-                    .where(col(IataCityMap.airport_name).is_not(None))
-                    .where(func.length(func.trim(col(IataCityMap.airport_name))) > 0)
-                    .order_by(
-                        col(IataCityMap.country_code).asc(),
-                        col(IataCityMap.city_code).asc(),
-                        col(IataCityMap.iata_code).asc(),
-                    )
-                ).all()
+            rows = self.session.exec(
+                select(
+                    IataCityMap.iata_code,
+                    IataCityMap.city_code,
+                    IataCityMap.country_code,
+                )
+                .where(func.lower(col(IataCityMap.city_name)) == normalized_city)
+                .where(col(IataCityMap.airport_name).is_not(None))
+                .where(func.length(func.trim(col(IataCityMap.airport_name))) > 0)
+                .where(col(IataCityMap.is_flightable).is_(True))
+                .order_by(
+                    col(IataCityMap.country_code).asc(),
+                    col(IataCityMap.city_code).asc(),
+                    col(IataCityMap.iata_code).asc(),
+                )
+            ).all()
         except SQLAlchemyError as exc:
             logger.exception("origin_airport_repository_failed reason=%s", str(exc))
             raise DataAccessError("origin airport resolver query failed") from exc
@@ -59,7 +61,6 @@ class OriginAirportRepository(OriginAirportResolver):
             key=lambda item: (
                 sum(code != item[0][0] for code in item[1]),
                 len(item[1]),
-                tuple(item[1]),
             ),
         )
 

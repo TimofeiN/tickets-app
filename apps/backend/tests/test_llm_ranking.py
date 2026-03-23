@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.api.mappers.trip_preferences_mapper import to_trip_preferences
-from app.api.schemas.search_request import SearchRequest
+from app.api.schemas.search.request import SearchRequest
 from app.application.dto.search_pipeline import FactualShortlistedOption
 from app.application.ports.llm_provider import LLMProvider, LLMProviderError
 from app.application.services.semantic_scoring_service import (

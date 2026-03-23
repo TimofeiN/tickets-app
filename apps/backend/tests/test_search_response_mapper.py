@@ -1,4 +1,4 @@
-from app.api.schemas.search_response import SearchResponse
+from app.api.schemas.search.response import SearchResponse
 from app.application.dto.search_result import (
     SearchGuidanceResult,
     SearchMetaResult,

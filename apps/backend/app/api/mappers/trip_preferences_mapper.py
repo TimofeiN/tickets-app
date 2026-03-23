@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.api.schemas.search_request import SearchRequest
+from app.api.schemas.search.request import SearchRequest
 from app.domain.models.trip_preferences import TripPreferences
 
 

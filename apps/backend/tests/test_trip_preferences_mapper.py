@@ -1,5 +1,5 @@
 from app.api.mappers.trip_preferences_mapper import to_trip_preferences
-from app.api.schemas.search_request import SearchRequest
+from app.api.schemas.search.request import SearchRequest
 from app.shared.enums import DatesMode
 
 

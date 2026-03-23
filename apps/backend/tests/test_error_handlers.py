@@ -32,7 +32,7 @@ def test_app_error_returns_frontend_contract() -> None:
     assert response.status_code == 503
     body = response.json()
     assert body["error"]["code"] == "provider_unavailable"
-    assert body["error"]["message"] == "Flight provider is temporarily unavailable"
+    assert body["error"]["message"] == "Flight search is temporarily unavailable. Please try again."
     assert "secret_token" not in response.text
 
 

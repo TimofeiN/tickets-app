@@ -13,5 +13,6 @@ class IataCityMap(SQLModel, table=True):
     city_name: str
     airport_name: str | None = None
     country_code: str | None = Field(default=None, max_length=3)
+    is_flightable: bool = Field(default=True)
     source: str
     updated_at: datetime | None = None

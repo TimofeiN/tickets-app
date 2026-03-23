@@ -18,6 +18,11 @@ def get_engine() -> Engine:
     return _ENGINE
 
 
+def get_db_session() -> Iterator[Session]:
+    with Session(get_engine()) as session:
+        yield session
+
+
 @contextmanager
 def get_session() -> Iterator[Session]:
     with Session(get_engine()) as session:

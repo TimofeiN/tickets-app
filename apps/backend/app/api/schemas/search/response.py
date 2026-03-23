@@ -122,6 +122,7 @@ class SearchResponse(BaseModel):
     guidance: SearchGuidance
     meta: SearchMeta
     trip_plan: str = ""
+    saved_search_id: str | None = None
 
     @classmethod
     def from_contract(cls, result: SearchResultContract) -> SearchResponse:

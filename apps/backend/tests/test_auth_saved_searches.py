@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
+
+from app.api.deps import get_search_service
+from app.application.dto.search_result import (
+    SearchGuidanceResult,
+    SearchMetaResult,
+    SearchOptionResult,
+    SearchResult,
+)
+from app.infrastructure.db.session import get_db_session
+from app.main import app
+from app.shared.enums import EnrichmentMode, RankingMode, SearchDataSource
+
+
+class _FakeSearchService:
+    def search(self, preferences) -> SearchResult:
+        del preferences
+        return SearchResult(
+            options=[
+                SearchOptionResult(
+                    option_id="opt_001",
+                    destination_city="Barcelona",
+                    origin_airport="BEG",
+                    destination_airport="BCN",
+                    price_usd=640,
+                    score=0.91,
+                    reason="Strong thematic fit.",
+                    trip_plan="Day 1: arrival. Day 2: old town.",
+                )
+            ],
+            guidance=SearchGuidanceResult(improvement_hint="", counterfactual=""),
+            meta=SearchMetaResult(
+                data_source=SearchDataSource.live,
+                ranking_mode=RankingMode.llm,
+                enrichment_mode=EnrichmentMode.llm,
+                fallback_reasons=[],
+            ),
+            trip_plan="Day 1: arrival. Day 2: old town.",
+        )
+
+
+def _install_sqlite_sessions() -> None:
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    def _override_get_db_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_db_session] = _override_get_db_session
+
+
+def test_auth_and_saved_search_flow() -> None:
+    _install_sqlite_sessions()
+    app.dependency_overrides[get_search_service] = lambda: _FakeSearchService()
+    client = TestClient(app)
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": "user@example.com", "password": "supersecret"},
+    )
+
+    assert register_response.status_code == 200
+    auth_body = register_response.json()
+    token = auth_body["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    me_response = client.get("/auth/me", headers=headers)
+    assert me_response.status_code == 200
+    assert me_response.json()["email"] == "user@example.com"
+
+    search_response = client.post(
+        "/search",
+        headers=headers,
+        json={
+            "origin_city": "Belgrade",
+            "dates_mode": "strict",
+            "strict_dates": {
+                "start_date": "2026-06-10",
+                "end_date": "2026-06-13",
+            },
+            "themes": ["beach", "history"],
+            "budget_usd": 2000,
+            "travelers_count": 2,
+        },
+    )
+
+    assert search_response.status_code == 200
+    search_body = search_response.json()
+    assert search_body["saved_search_id"]
+
+    saved_searches_response = client.get("/searches", headers=headers)
+    assert saved_searches_response.status_code == 200
+    saved_searches_body = saved_searches_response.json()
+    assert len(saved_searches_body) == 1
+    assert saved_searches_body[0]["summary_destination"] == "Barcelona"
+    assert saved_searches_body[0]["options_count"] == 1
+
+    detail_response = client.get(
+        f"/searches/{search_body['saved_search_id']}",
+        headers=headers,
+    )
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["request_payload"]["origin_city"] == "Belgrade"
+    assert detail_body["response_payload"]["options"][0]["destination_city"] == "Barcelona"
+
+    logout_response = client.post("/auth/logout", headers=headers)
+    assert logout_response.status_code == 200
+
+    me_after_logout = client.get("/auth/me", headers=headers)
+    assert me_after_logout.status_code == 401
+
+    app.dependency_overrides.clear()
+
+
+def test_saved_searches_require_auth() -> None:
+    _install_sqlite_sessions()
+    client = TestClient(app)
+
+    response = client.get("/searches")
+
+    assert response.status_code == 401
+    app.dependency_overrides.clear()

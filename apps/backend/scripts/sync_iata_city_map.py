@@ -10,6 +10,8 @@ from app.core.settings import settings
 from app.infrastructure.db.models.iata_city_map import IataCityMap
 from app.infrastructure.db.session import get_session
 
+UPSERT_BATCH_SIZE = 5000
+
 
 def fetch_json(url: str) -> list[dict[str, object]]:
     with urlopen(url, timeout=30) as response:
@@ -30,14 +32,16 @@ def build_city_lookup(cities: list[dict[str, object]]) -> dict[str, str]:
 def build_records(
     airports: list[dict[str, object]],
     city_lookup: dict[str, str],
-) -> list[tuple[str, str, str, str, str, str]]:
-    records: dict[str, tuple[str, str, str, str, str, str]] = {}
+) -> list[tuple[str, str, str, str, str, bool, str]]:
+    records: dict[str, tuple[str, str, str, str, str, bool, str]] = {}
 
     for airport in airports:
         iata_code = str(airport.get("code", "")).strip().upper()
         city_code = str(airport.get("city_code", "")).strip().upper()
         country_code = str(airport.get("country_code", "")).strip().upper()
         airport_name = str(airport.get("name", "")).strip()
+        raw_flightable = airport.get("flightable")
+        is_flightable = raw_flightable if isinstance(raw_flightable, bool) else True
         if not iata_code or len(iata_code) != 3:
             continue
 
@@ -51,38 +55,51 @@ def build_records(
             city_name,
             airport_name,
             country_code,
+            is_flightable,
             "travelpayouts_data_api",
         )
 
     return list(records.values())
 
 
-def upsert_records(records: list[tuple[str, str, str, str, str, str]]) -> None:
+def upsert_records(records: list[tuple[str, str, str, str, str, bool, str]]) -> None:
     try:
-        payload = [
-            {
-                "iata_code": iata_code,
-                "city_code": city_code,
-                "city_name": city_name,
-                "airport_name": airport_name,
-                "country_code": country_code,
-                "source": source,
-            }
-            for iata_code, city_code, city_name, airport_name, country_code, source in records
-        ]
-        statement = insert(IataCityMap).values(payload)
-        statement = statement.on_conflict_do_update(
-            index_elements=[IataCityMap.iata_code],
-            set_={
-                "city_code": statement.excluded.city_code,
-                "city_name": statement.excluded.city_name,
-                "airport_name": statement.excluded.airport_name,
-                "country_code": statement.excluded.country_code,
-                "source": statement.excluded.source,
-            },
-        )
         with get_session() as session:
-            session.execute(statement)
+            for start in range(0, len(records), UPSERT_BATCH_SIZE):
+                batch = records[start : start + UPSERT_BATCH_SIZE]
+                payload = [
+                    {
+                        "iata_code": iata_code,
+                        "city_code": city_code,
+                        "city_name": city_name,
+                        "airport_name": airport_name,
+                        "country_code": country_code,
+                        "is_flightable": is_flightable,
+                        "source": source,
+                    }
+                    for (
+                        iata_code,
+                        city_code,
+                        city_name,
+                        airport_name,
+                        country_code,
+                        is_flightable,
+                        source,
+                    ) in batch
+                ]
+                statement = insert(IataCityMap).values(payload)
+                statement = statement.on_conflict_do_update(
+                    index_elements=[IataCityMap.iata_code],
+                    set_={
+                        "city_code": statement.excluded.city_code,
+                        "city_name": statement.excluded.city_name,
+                        "airport_name": statement.excluded.airport_name,
+                        "country_code": statement.excluded.country_code,
+                        "is_flightable": statement.excluded.is_flightable,
+                        "source": statement.excluded.source,
+                    },
+                )
+                session.execute(statement)
             session.commit()
     except ProgrammingError as exc:
         if "iata_city_map" in str(exc).lower():

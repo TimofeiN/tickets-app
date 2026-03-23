@@ -1,10 +1,12 @@
 ## Backend Rules
 
-### Code structure
-- Keep route handlers thin.
-- Keep business logic in `application` or `domain`, not in routers.
-- Keep external API and DB access in `infrastructure`.
+### Rule index
+- API layer rules: `apps/backend/app/api/AGENTS.md`
+- Repository layer rules: `apps/backend/app/infrastructure/db/AGENTS.md`
+
+### Architecture baseline
 - Follow existing backend patterns before introducing new structure.
+- Keep layer boundaries explicit (`api` -> `application/domain` -> `infrastructure`).
 
 ### Core principles
 - KISS: simplest solution.

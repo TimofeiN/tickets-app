@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.api.mappers.trip_preferences_mapper import to_trip_preferences
-from app.api.schemas.search_request import SearchRequest
+from app.api.schemas.search.request import SearchRequest
 from app.domain.models.flight_candidate import FlightCandidate
 from app.domain.services.filtering import filter_candidates
 

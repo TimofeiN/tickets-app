@@ -1,5 +1,7 @@
+import asyncio
 from datetime import date
 
+import httpx
 import pytest
 
 from app.application.ports.flight_search_provider import FlightOffer
@@ -130,3 +132,61 @@ def test_get_offers_returns_live_source() -> None:
 
     assert result.offers == expected_offers
     assert result.source == SearchDataSource.live
+
+
+def test_request_prices_retries_connect_timeout_and_succeeds() -> None:
+    provider = TravelpayoutsProvider(
+        api_token="token",
+        marker=None,
+        base_url="https://api.travelpayouts.com",
+        timeout_sec=3.0,
+    )
+    request = httpx.Request("GET", "https://api.travelpayouts.com/v1/prices/cheap")
+    response = httpx.Response(status_code=200, request=request, json={"data": {}})
+
+    class _Client:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def get(self, path, params):
+            del path, params
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.ConnectTimeout("connect timeout", request=request)
+            return response
+
+    client = _Client()
+    output = asyncio.run(
+        provider._request_prices(  # type: ignore[arg-type]
+            client,
+            "BEG",
+            {"origin": "BEG"},
+        )
+    )
+
+    assert output.status_code == 200
+    assert client.calls == 2
+
+
+def test_request_prices_connect_timeout_exhausted_raises_provider_unavailable() -> None:
+    provider = TravelpayoutsProvider(
+        api_token="token",
+        marker=None,
+        base_url="https://api.travelpayouts.com",
+        timeout_sec=3.0,
+    )
+    request = httpx.Request("GET", "https://api.travelpayouts.com/v1/prices/cheap")
+
+    class _Client:
+        async def get(self, path, params):
+            del path, params
+            raise httpx.ConnectTimeout("connect timeout", request=request)
+
+    with pytest.raises(ProviderUnavailableError, match="provider connect timeout"):
+        asyncio.run(
+            provider._request_prices(  # type: ignore[arg-type]
+                _Client(),
+                "BEG",
+                {"origin": "BEG"},
+            )
+        )

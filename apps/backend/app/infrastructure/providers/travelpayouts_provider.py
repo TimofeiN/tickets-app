@@ -19,6 +19,9 @@ from app.shared.enums import DatesMode, SearchDataSource
 
 logger = logging.getLogger(__name__)
 
+CONNECT_TIMEOUT_RETRY_COUNT = 1
+CONNECT_TIMEOUT_RETRY_BACKOFF_SEC = 0.25
+
 
 class TravelpayoutsProvider(FlightSearchProvider):
     def __init__(
@@ -172,38 +175,58 @@ class TravelpayoutsProvider(FlightSearchProvider):
         origin_airport: str,
         query: dict[str, str],
     ) -> httpx.Response:
-        try:
-            response = await client.get("/v1/prices/cheap", params=query)
-            response.raise_for_status()
-            logger.info(
-                "travelpayouts_http_response status=%s url=%s origin=%s",
-                response.status_code,
-                "/v1/prices/cheap",
-                origin_airport,
-            )
-        except httpx.HTTPStatusError as exc:
-            response_text = exc.response.text[:300].replace("\n", " ").strip()
-            request_url = str(exc.request.url)
-            raise ProviderUnavailableError(
-                "provider http error "
-                f"origin={origin_airport} status={exc.response.status_code} "
-                f"url={request_url} body={response_text or '<empty>'}"
-            ) from exc
-        except httpx.TimeoutException as exc:
-            request_url = str(exc.request.url) if exc.request is not None else "<unknown>"
-            raise ProviderUnavailableError(
-                "provider timeout "
-                f"origin={origin_airport} url={request_url} "
-                f"detail={str(exc) or exc.__class__.__name__}"
-            ) from exc
-        except httpx.RequestError as exc:
-            request_url = str(exc.request.url) if exc.request is not None else "<unknown>"
-            raise ProviderUnavailableError(
-                "provider request error "
-                f"origin={origin_airport} url={request_url} "
-                f"detail={str(exc) or exc.__class__.__name__}"
-            ) from exc
-        return response
+        for attempt in range(CONNECT_TIMEOUT_RETRY_COUNT + 1):
+            try:
+                response = await client.get("/v1/prices/cheap", params=query)
+                response.raise_for_status()
+                logger.info(
+                    "travelpayouts_http_response status=%s url=%s origin=%s",
+                    response.status_code,
+                    "/v1/prices/cheap",
+                    origin_airport,
+                )
+                return response
+            except httpx.ConnectTimeout as exc:
+                request_url = str(exc.request.url) if exc.request is not None else "<unknown>"
+                is_last_attempt = attempt >= CONNECT_TIMEOUT_RETRY_COUNT
+                if is_last_attempt:
+                    raise ProviderUnavailableError(
+                        "provider connect timeout "
+                        f"origin={origin_airport} url={request_url} "
+                        f"detail={str(exc) or exc.__class__.__name__}"
+                    ) from exc
+                logger.warning(
+                    "travelpayouts_connect_timeout_retry origin=%s attempt=%s/%s url=%s",
+                    origin_airport,
+                    attempt + 1,
+                    CONNECT_TIMEOUT_RETRY_COUNT + 1,
+                    request_url,
+                )
+                await asyncio.sleep(CONNECT_TIMEOUT_RETRY_BACKOFF_SEC * (attempt + 1))
+            except httpx.HTTPStatusError as exc:
+                response_text = exc.response.text[:300].replace("\n", " ").strip()
+                request_url = str(exc.request.url)
+                raise ProviderUnavailableError(
+                    "provider http error "
+                    f"origin={origin_airport} status={exc.response.status_code} "
+                    f"url={request_url} body={response_text or '<empty>'}"
+                ) from exc
+            except httpx.TimeoutException as exc:
+                request_url = str(exc.request.url) if exc.request is not None else "<unknown>"
+                raise ProviderUnavailableError(
+                    "provider timeout "
+                    f"origin={origin_airport} url={request_url} "
+                    f"detail={str(exc) or exc.__class__.__name__}"
+                ) from exc
+            except httpx.RequestError as exc:
+                request_url = str(exc.request.url) if exc.request is not None else "<unknown>"
+                raise ProviderUnavailableError(
+                    "provider request error "
+                    f"origin={origin_airport} url={request_url} "
+                    f"detail={str(exc) or exc.__class__.__name__}"
+                ) from exc
+
+        raise ProviderUnavailableError("provider request failed after retries")
 
     @staticmethod
     def _parse_prices_data(response: httpx.Response) -> dict[str, object]:

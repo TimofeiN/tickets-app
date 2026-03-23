@@ -1,14 +1,21 @@
 from fastapi import FastAPI
 
+from app.api.routers.auth import router as auth_router
 from app.api.routers.health import router as health_router
+from app.api.routers.saved_searches import router as saved_searches_router
 from app.api.routers.search import router as search_router
 from app.core.logging import configure_logging
 from app.exception_handler import setup_exception_handlers
 from app.middleware import setup_middleware
 
 configure_logging()
+
 app = FastAPI(title="tickets_app backend", version="0.1.0")
+
 setup_middleware(app)
 setup_exception_handlers(app)
+
+app.include_router(auth_router)
 app.include_router(health_router)
+app.include_router(saved_searches_router)
 app.include_router(search_router)

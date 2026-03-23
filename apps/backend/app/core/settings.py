@@ -27,7 +27,7 @@ class Settings(BaseSettings):
         alias="TRAVELPAYOUTS_BASE_URL",
     )
     travelpayouts_timeout_sec: float = Field(
-        default=3.0,
+        default=6.0,
         ge=1.0,
         alias="TRAVELPAYOUTS_TIMEOUT_SEC",
     )
