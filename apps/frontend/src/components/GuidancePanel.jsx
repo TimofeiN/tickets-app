@@ -2,21 +2,19 @@ export function GuidancePanel({ guidance }) {
   if (!guidance?.improvement_hint && !guidance?.counterfactual) return null;
 
   return (
-    <div className="guidance-grid">
+    <section className="panel">
       {guidance.improvement_hint ? (
-        <article className="guidance-card">
-          <p className="section-kicker">Refine search</p>
+        <article className="guidance-block">
           <h3>How to improve results</h3>
           <p>{guidance.improvement_hint}</p>
         </article>
       ) : null}
       {guidance.counterfactual ? (
-        <article className="guidance-card">
-          <p className="section-kicker">Tradeoff view</p>
+        <article className="guidance-block">
           <h3>If priorities change</h3>
           <p>{guidance.counterfactual}</p>
         </article>
       ) : null}
-    </div>
+    </section>
   );
 }

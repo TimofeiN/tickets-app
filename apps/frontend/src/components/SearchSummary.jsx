@@ -28,19 +28,16 @@ export function SearchSummary({ searchContext, onEditSearch }) {
   ].filter((item) => item.value);
 
   return (
-    <aside className="summary-card">
-      <div className="summary-header">
-        <div className="summary-header-row">
-          <p className="section-kicker">Current brief</p>
-          <button
-            className="inline-link-button"
-            type="button"
-            onClick={onEditSearch}
-          >
-            Edit search
-          </button>
-        </div>
-        <h3>What this search optimizes for</h3>
+    <section className="panel">
+      <div className="panel-title panel-title-row">
+        <h2>Current search</h2>
+        <button
+          className="inline-link-button"
+          type="button"
+          onClick={onEditSearch}
+        >
+          Edit
+        </button>
       </div>
       <div className="summary-grid">
         {summaryItems.map((item) => (
@@ -50,13 +47,13 @@ export function SearchSummary({ searchContext, onEditSearch }) {
           </div>
         ))}
       </div>
-      <div className="summary-themes">
+      <div className="summary-themes chips">
         {searchContext.themes.map((theme) => (
-          <span className="summary-theme" key={theme}>
+          <span className="chip chip-active" key={theme}>
             {formatThemeLabel(theme)}
           </span>
         ))}
       </div>
-    </aside>
+    </section>
   );
 }

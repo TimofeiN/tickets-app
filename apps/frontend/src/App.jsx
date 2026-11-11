@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
 import { fetchJson } from "./api/client";
 import { AccountPanel } from "./components/AccountPanel";
-import { HeroCopy } from "./components/HeroCopy";
 import { ResultsMain } from "./components/ResultsMain";
 import { SavedSearchesPanel } from "./components/SavedSearchesPanel";
 import { SearchForm } from "./components/SearchForm";
 import { SearchSummary } from "./components/SearchSummary";
+import { SiteHeader } from "./components/SiteHeader";
 import { StatusBanners } from "./components/StatusBanners";
 import { AI_LOADING_STEPS, DAY_IN_MS } from "./config/constants";
 import { useAuth } from "./hooks/useAuth";
@@ -170,23 +170,7 @@ export default function App() {
 
   return (
     <main className="page">
-      <section className="hero">
-        <HeroCopy />
-
-        <AccountPanel
-          authMode={auth.mode}
-          authEmail={auth.email}
-          authPassword={auth.password}
-          authUser={auth.user}
-          authErrorText={auth.errorText}
-          isAuthLoading={auth.isLoading}
-          onAuthEmailChange={auth.setEmail}
-          onAuthModeChange={auth.setMode}
-          onAuthPasswordChange={auth.setPassword}
-          onAuthSubmit={auth.submit}
-          onLogout={auth.logout}
-        />
-      </section>
+      <SiteHeader />
 
       <SearchForm
         shellRef={searchShellRef}
@@ -212,35 +196,46 @@ export default function App() {
         loadingStepIndex={loadingStepIndex}
       />
 
-      <section className="results-section">
-        <div className="results-layout">
-          <ResultsMain
-            isLoading={isLoading}
-            searchContext={searchContext}
-            result={result}
-            authUser={auth.user}
-            getReactionProps={reactions.getReactionProps}
-            onReact={(suggestionId, reaction) =>
-              reactions.react(auth.token, suggestionId, reaction)
-            }
-          />
+      <div className="results-layout">
+        <ResultsMain
+          isLoading={isLoading}
+          searchContext={searchContext}
+          result={result}
+          authUser={auth.user}
+          getReactionProps={reactions.getReactionProps}
+          onReact={(suggestionId, reaction) =>
+            reactions.react(auth.token, suggestionId, reaction)
+          }
+        />
 
-          <div className="results-sidebar">
-            <SearchSummary
-              onEditSearch={handleEditSearch}
-              searchContext={searchContext}
-            />
-            <SavedSearchesPanel
-              activeSavedSearchId={activeSavedSearchId}
-              authUser={auth.user}
-              isLoading={savedSearches.isLoading}
-              items={savedSearches.items}
-              errorText={savedSearches.errorText}
-              onSelect={handleLoadSavedSearch}
-            />
-          </div>
-        </div>
-      </section>
+        <aside className="results-sidebar">
+          <SearchSummary
+            onEditSearch={handleEditSearch}
+            searchContext={searchContext}
+          />
+          <AccountPanel
+            authMode={auth.mode}
+            authEmail={auth.email}
+            authPassword={auth.password}
+            authUser={auth.user}
+            authErrorText={auth.errorText}
+            isAuthLoading={auth.isLoading}
+            onAuthEmailChange={auth.setEmail}
+            onAuthModeChange={auth.setMode}
+            onAuthPasswordChange={auth.setPassword}
+            onAuthSubmit={auth.submit}
+            onLogout={auth.logout}
+          />
+          <SavedSearchesPanel
+            activeSavedSearchId={activeSavedSearchId}
+            authUser={auth.user}
+            isLoading={savedSearches.isLoading}
+            items={savedSearches.items}
+            errorText={savedSearches.errorText}
+            onSelect={handleLoadSavedSearch}
+          />
+        </aside>
+      </div>
     </main>
   );
 }

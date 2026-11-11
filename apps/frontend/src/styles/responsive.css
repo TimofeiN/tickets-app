@@ -1,74 +1,62 @@
-@media (max-width: 980px) {
-  .hero,
-  .results-layout,
-  .search-shell-header,
-  .theme-panel-header,
-  .search-actions,
-  .alternatives-header,
-  .summary-header {
-    grid-template-columns: 1fr;
-  }
-
-  .hero,
+@media (max-width: 900px) {
   .results-layout {
-    display: grid;
-  }
-
-  .hero-points {
     grid-template-columns: 1fr;
-  }
-
-  .hero-title-break {
-    display: none;
-  }
-
-  .hero-panel,
-  .summary-card,
-  .results-sidebar {
-    min-width: 0;
   }
 }
 
-@media (max-width: 760px) {
-  .page {
-    width: min(100% - 20px, 1160px);
-    padding: 20px 0 44px;
+@media (max-width: 700px) {
+  .search-fields {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .hero-copy,
-  .hero-panel,
-  .search-shell,
-  .results-section,
-  .card,
-  .card-featured,
-  .summary-card {
-    padding: 20px;
+  .search-fields .field:nth-child(4n) {
+    border-right: var(--border-soft);
   }
 
-  .field-grid,
-  .field-grid-main,
-  .detail-grid,
-  .alternative-grid,
-  .guidance-grid {
+  .search-fields .field:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .search-actions {
     grid-template-columns: 1fr;
   }
 
-  .card-topline,
-  .card-header,
-  .search-actions {
-    flex-direction: column;
+  .option-row {
+    grid-template-columns: 1fr auto;
   }
 
-  .reaction-row {
-    flex-direction: column;
+  .option-code {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    border-right: 0;
+    border-bottom: var(--border-soft);
+    padding: var(--space-2) var(--space-4);
   }
 
-  .price-block {
-    justify-items: start;
+  .option-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    border-left: 0;
+    border-top: var(--border-soft);
     text-align: left;
   }
 
-  .cta-button {
-    width: 100%;
+  .option-body {
+    grid-column: 1 / -1;
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 700px) {
+  .site-header {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .search-actions .cta-button {
+    min-width: 0;
   }
 }

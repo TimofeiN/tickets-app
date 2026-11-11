@@ -8,7 +8,7 @@ import {
 export function ResultMeta({ meta }) {
   if (!meta) return null;
 
-  const pills = [
+  const labels = [
     FRIENDLY_SOURCE[meta.data_source],
     FRIENDLY_RANKING[meta.ranking_mode],
     FRIENDLY_ENRICHMENT[meta.enrichment_mode],
@@ -20,24 +20,12 @@ export function ResultMeta({ meta }) {
 
   return (
     <>
-      {pills.length ? (
-        <div className="meta-panel">
-          {pills.map((pill) => (
-            <span className="meta-pill" key={pill}>
-              {pill}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {notices.length ? (
-        <div className="notice-stack">
-          {notices.map((notice) => (
-            <p className="notice" key={notice}>
-              {notice}
-            </p>
-          ))}
-        </div>
-      ) : null}
+      {labels.length ? <p className="meta-line">{labels.join(" · ")}</p> : null}
+      {notices.map((notice) => (
+        <p className="notice" key={notice}>
+          {notice}
+        </p>
+      ))}
     </>
   );
 }

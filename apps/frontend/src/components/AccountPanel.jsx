@@ -14,21 +14,16 @@ export function AccountPanel({
   const submitLabel = authMode === "login" ? "Sign in" : "Create account";
 
   return (
-    <aside className="hero-panel account-panel">
-      <div className="account-header">
-        <p className="section-kicker">Account</p>
-        <h2>
-          {authUser ? "Search history is active" : "Sign in to save searches"}
-        </h2>
-      </div>
+    <section className="panel">
+      <h2 className="panel-title">Account</h2>
 
       {authUser ? (
-        <div className="account-summary">
-          <div className="account-summary-card">
+        <div className="panel-body">
+          <div className="signed-in">
             <span>Signed in as</span>
             <strong>{authUser.email}</strong>
           </div>
-          <p className="account-note">
+          <p className="note">
             Every new search is saved automatically and can be reopened below.
           </p>
           <button className="secondary-button" type="button" onClick={onLogout}>
@@ -36,10 +31,9 @@ export function AccountPanel({
           </button>
         </div>
       ) : (
-        <>
-          <p className="account-note">
-            Search still works without an account, but results will not be
-            saved.
+        <div className="panel-body">
+          <p className="note">
+            Search works without an account, but results will not be saved.
           </p>
 
           <div className="auth-toggle">
@@ -93,15 +87,15 @@ export function AccountPanel({
             ) : null}
 
             <button
-              className="cta-button account-submit"
+              className="cta-button"
               type="submit"
               disabled={isAuthLoading}
             >
               {isAuthLoading ? "Working..." : submitLabel}
             </button>
           </form>
-        </>
+        </div>
       )}
-    </aside>
+    </section>
   );
 }

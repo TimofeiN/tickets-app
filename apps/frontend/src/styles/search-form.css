@@ -1,185 +1,52 @@
-.search-shell {
-  padding: 28px;
-  margin-bottom: 18px;
+.search-panel {
+  margin-top: var(--space-5);
 }
 
-.search-shell-header,
-.theme-panel-header,
-.search-actions,
-.alternatives-header,
-.summary-header {
+.search-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.search-fields .field:nth-child(4n) {
+  border-right: 0;
+}
+
+.search-themes {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.search-themes-head {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.search-form {
-  display: grid;
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.summary-header,
-.alternatives-header {
-  display: grid;
-  gap: 6px;
-}
-
-.summary-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.summary-header-row .section-kicker {
-  margin: 0;
-}
-
-.field-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.field-grid-main {
-  grid-template-columns: 1.3fr 0.7fr;
-}
-
-.field {
-  display: grid;
-  gap: 8px;
-}
-
-.field span,
-.detail-card span,
-.summary-item span {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.field input {
-  width: 100%;
-  border: 1px solid #d7dee8;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.96);
-  padding: 15px 16px;
-  color: #172033;
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    transform 120ms ease;
-}
-
-.field input:focus {
-  outline: none;
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
-  transform: translateY(-1px);
-}
-
-.field small {
-  color: #64748b;
-}
-
-.theme-panel {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border-radius: 24px;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 248, 235, 0.72),
-    rgba(255, 255, 255, 0.92)
-  );
-  border: 1px solid rgba(245, 158, 11, 0.14);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.chip {
-  border: 1px solid #d6dde8;
-  border-radius: 999px;
-  background: #ffffff;
-  padding: 10px 14px;
-  color: #334155;
-  transition:
-    transform 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    background 120ms ease;
-}
-
-.chip:hover {
-  transform: translateY(-1px);
-  border-color: #f59e0b;
-}
-
-.chip-active {
-  border-color: #f59e0b;
-  background: linear-gradient(180deg, #fff3c4, #ffe39d);
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.25);
-  color: #7c2d12;
-}
-
-.inline-hint {
-  margin: 0;
-  font-size: 0.92rem;
-}
-
-.inline-link-button {
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #334155;
-  font-weight: 600;
-  font-size: 0.86rem;
-  padding: 6px 12px;
-}
-
-.inline-link-button:hover {
-  border-color: rgba(245, 158, 11, 0.45);
-  color: #9a3412;
-}
-
-.inline-hint-warning {
-  color: #b45309;
-}
-
-.inline-hint-error {
-  color: #b91c1c;
+  gap: var(--space-3);
+  font: 12px var(--font-mono);
+  color: var(--color-muted);
+  text-transform: uppercase;
 }
 
 .search-actions {
-  padding: 20px 22px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #f8fafc;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  border-top: var(--border-strong);
 }
 
 .search-actions-copy {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  font: 12px var(--font-mono);
+  color: var(--color-muted);
 }
 
-.search-actions-copy span {
-  color: rgba(226, 232, 240, 0.8);
+.search-actions-copy strong {
+  color: var(--color-ink);
+  font-size: 14px;
 }
 
-.cta-button {
-  min-width: 220px;
-  border: 0;
-  border-radius: 999px;
-  padding: 15px 24px;
-  font-weight: 700;
-  color: #172033;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  box-shadow: 0 16px 32px rgba(245, 158, 11, 0.28);
+.search-actions .cta-button {
+  min-width: 260px;
 }

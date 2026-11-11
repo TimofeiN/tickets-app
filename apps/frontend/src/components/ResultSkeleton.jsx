@@ -1,23 +1,17 @@
-export function ResultSkeleton({ featured = false }) {
-  const cardClassName = featured
-    ? "card card-featured skeleton-card"
-    : "card skeleton-card";
-
+export function ResultSkeleton() {
   return (
-    <article className={cardClassName}>
-      <div className="skeleton skeleton-badge-row" />
-      <div className="skeleton skeleton-title" />
-      <div className="skeleton skeleton-text" />
-      <div className="skeleton skeleton-text skeleton-text-short" />
-      <div className="detail-grid">
-        <div className="detail-card">
-          <div className="skeleton skeleton-detail" />
-        </div>
-        <div className="detail-card">
-          <div className="skeleton skeleton-detail" />
-        </div>
+    <article className="option-row" aria-hidden="true">
+      <div className="option-code">
+        <div className="skeleton skeleton-code" />
       </div>
-      <div className="skeleton skeleton-block" />
+      <div className="option-body">
+        <div className="skeleton skeleton-title" />
+        <div className="skeleton skeleton-text" />
+        <div className="skeleton skeleton-text skeleton-text-short" />
+      </div>
+      <div className="option-side">
+        <div className="skeleton skeleton-price" />
+      </div>
     </article>
   );
 }

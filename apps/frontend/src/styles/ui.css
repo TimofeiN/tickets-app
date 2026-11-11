@@ -1,0 +1,185 @@
+/* Shared primitives: panel, field, chips, buttons, hints */
+
+.panel {
+  background: var(--color-paper);
+  border: var(--border-strong);
+}
+
+.panel-title {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  border-bottom: var(--border-strong);
+  font: 700 13px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.panel-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-right: var(--border-soft);
+  border-bottom: var(--border-soft);
+  font: 11px var(--font-mono);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field:focus-within {
+  box-shadow: inset 0 -3px var(--color-ink);
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 500 18px var(--font-mono);
+  color: var(--color-ink);
+  text-transform: none;
+}
+
+.field small {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  padding: 3px 10px;
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius);
+  background: var(--color-paper);
+  font: 500 12px var(--font-mono);
+}
+
+.chip-active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.cta-button {
+  padding: 14px var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font: 700 15px var(--font-sans);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.cta-button:hover:not(:disabled) {
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.secondary-button {
+  padding: 6px var(--space-3);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius);
+  background: var(--color-paper);
+  font: 500 12px var(--font-mono);
+}
+
+.secondary-button:hover:not(:disabled),
+.secondary-button-active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.inline-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 12px var(--font-mono);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inline-hint {
+  font: 12px var(--font-mono);
+  color: var(--color-muted);
+}
+
+.inline-hint-warning,
+.inline-hint-error {
+  color: var(--color-danger);
+}
+
+.note {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body pre,
+.markdown-body blockquote {
+  margin: var(--space-2) 0 0;
+}
+
+.markdown-body ul,
+.markdown-body ol,
+.plain-list {
+  padding-left: 1.2rem;
+}
+
+.markdown-body code {
+  padding: 0 4px;
+  background: var(--color-bg);
+  font: 0.9em var(--font-mono);
+}
+
+.markdown-body pre {
+  overflow-x: auto;
+  padding: var(--space-3);
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.markdown-body blockquote {
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--color-accent);
+}
+
+.plain-list {
+  margin: 0;
+}
+
+.panel-title-row h2 {
+  font: inherit;
+  letter-spacing: inherit;
+}

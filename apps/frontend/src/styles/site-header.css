@@ -1,0 +1,20 @@
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-3) var(--space-5);
+  margin: 0 calc(-1 * var(--space-5));
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.site-header strong {
+  font: 700 15px var(--font-sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.site-header span {
+  font: 12px var(--font-mono);
+  color: var(--color-line);
+}

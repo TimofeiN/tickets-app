@@ -1,0 +1,45 @@
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-line) 0%,
+    var(--color-bg) 50%,
+    var(--color-line) 100%
+  );
+  background-size: 200% 100%;
+  animation: pulse-slide 1.6s linear infinite;
+}
+
+.skeleton-code {
+  width: 56px;
+  height: 28px;
+}
+
+.skeleton-title {
+  width: 40%;
+  height: 24px;
+}
+
+.skeleton-text {
+  width: 85%;
+  height: 14px;
+}
+
+.skeleton-text-short {
+  width: 55%;
+}
+
+.skeleton-price {
+  width: 100px;
+  height: 28px;
+  margin-left: auto;
+}
+
+@keyframes pulse-slide {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}

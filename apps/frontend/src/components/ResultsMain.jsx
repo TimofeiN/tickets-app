@@ -12,8 +12,6 @@ export function ResultsMain({
   onReact,
 }) {
   const options = result?.options || [];
-  const featuredOption = options[0] || null;
-  const alternativeOptions = options.slice(1);
   const guidance = result?.guidance || {
     improvement_hint: "",
     counterfactual: "",
@@ -31,83 +29,56 @@ export function ResultsMain({
 
   return (
     <div className="results-main">
-      <div className="results-heading">
-        <p className="section-kicker">Recommendations</p>
-        <h2>{resultsTitle}</h2>
-        <p className="hero-text">
-          {searchContext
-            ? "Results are organized as one main recommendation plus any remaining alternatives."
-            : "Set the brief above to compare a focused shortlist instead of scanning a long list."}
-        </p>
+      <div className="results-bar">
+        <strong>{resultsTitle}</strong>
       </div>
 
       <ResultMeta meta={meta} />
       <GuidancePanel guidance={guidance} />
 
       {isLoading ? (
-        <div className="results-stack">
-          <ResultSkeleton featured />
-          <div className="alternative-grid">
-            <ResultSkeleton />
-            <ResultSkeleton />
-          </div>
-        </div>
+        <section className="panel">
+          <ResultSkeleton />
+          <ResultSkeleton />
+          <ResultSkeleton />
+        </section>
       ) : null}
 
       {!isLoading && !searchContext ? (
-        <div className="empty-state">
+        <section className="panel empty-state">
           <h3>Start with a trip brief</h3>
           <p>
             Choose dates, a budget, and a few themes to get a compact set of
             ranked destination ideas.
           </p>
-        </div>
+        </section>
       ) : null}
 
       {!isLoading && searchContext && options.length === 0 ? (
-        <div className="empty-state">
+        <section className="panel empty-state">
           <h3>No options matched this search</h3>
           <p>
             Try widening the dates, increasing the budget, or simplifying the
             selected themes.
           </p>
-        </div>
+        </section>
       ) : null}
 
-      {!isLoading && featuredOption ? (
-        <div className="results-stack">
-          <OptionCard
-            option={featuredOption}
-            index={0}
-            options={options}
-            featured
-            canReact={Boolean(authUser)}
-            {...getReactionProps(featuredOption)}
-            onReact={onReact}
-          />
-
-          {alternativeOptions.length ? (
-            <section className="alternatives-section">
-              <div className="alternatives-header">
-                <p className="section-kicker">Alternatives</p>
-                <h3>Other options worth considering</h3>
-              </div>
-              <div className="alternative-grid">
-                {alternativeOptions.map((option, optionIndex) => (
-                  <OptionCard
-                    key={option.option_id}
-                    option={option}
-                    index={optionIndex + 1}
-                    options={options}
-                    canReact={Boolean(authUser)}
-                    {...getReactionProps(option)}
-                    onReact={onReact}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
+      {!isLoading && options.length > 0 ? (
+        <section className="panel">
+          {options.map((option, optionIndex) => (
+            <OptionCard
+              key={option.option_id}
+              option={option}
+              index={optionIndex}
+              options={options}
+              featured={optionIndex === 0}
+              canReact={Boolean(authUser)}
+              {...getReactionProps(option)}
+              onReact={onReact}
+            />
+          ))}
+        </section>
       ) : null}
     </div>
   );

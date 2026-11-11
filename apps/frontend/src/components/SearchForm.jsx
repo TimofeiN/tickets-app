@@ -1,10 +1,6 @@
 import { useMemo } from "react";
 import { THEMES } from "../config/constants";
-import {
-  formatThemeLabel,
-  getTripLengthLabel,
-  parseDateInputValue,
-} from "../utils/format";
+import { getTripLengthLabel, parseDateInputValue } from "../utils/format";
 
 export function SearchForm({
   shellRef,
@@ -34,20 +30,12 @@ export function SearchForm({
     return isDateRangeValid;
   }, [isBudgetValid, isDateRangeValid, originCity, themes]);
 
-  const selectedThemeLabels = themes.map((theme) => formatThemeLabel(theme));
-
   return (
-    <section className="search-shell" ref={shellRef}>
-      <div className="search-shell-header">
-        <div>
-          <p className="section-kicker">Search setup</p>
-          <h2>Build the trip brief</h2>
-        </div>
-        <p className="form-note">Budget is shown as total for 2 travelers.</p>
-      </div>
+    <section className="panel search-panel" ref={shellRef}>
+      <h2 className="panel-title">Search</h2>
 
-      <form className="search-form" onSubmit={onSubmit}>
-        <div className="field-grid field-grid-main">
+      <form onSubmit={onSubmit}>
+        <div className="search-fields">
           <label className="field">
             <span>Origin city</span>
             <input
@@ -57,19 +45,6 @@ export function SearchForm({
             />
           </label>
 
-          <label className="field">
-            <span>Total budget</span>
-            <input
-              type="number"
-              min="100"
-              value={budgetUsd}
-              onChange={(event) => onBudgetChange(event.target.value)}
-            />
-            <small>Shown and ranked as a total budget for two travelers.</small>
-          </label>
-        </div>
-
-        <div className="field-grid">
           <label className="field">
             <span>Start date</span>
             <input
@@ -87,23 +62,29 @@ export function SearchForm({
               onChange={(event) => onEndDateChange(event.target.value)}
             />
           </label>
+
+          <label className="field">
+            <span>Total budget, USD</span>
+            <input
+              type="number"
+              min="100"
+              value={budgetUsd}
+              onChange={(event) => onBudgetChange(event.target.value)}
+            />
+            <small>For 2 travelers</small>
+          </label>
         </div>
 
         {!isDateRangeValid ? (
-          <p className="inline-hint inline-hint-warning">
+          <p className="inline-hint inline-hint-warning search-themes">
             End date must be after start date.
           </p>
         ) : null}
 
-        <div className="theme-panel">
-          <div className="theme-panel-header">
-            <div>
-              <p className="section-kicker">Themes</p>
-              <h3>{themes.length} of 5 selected</h3>
-            </div>
-            <p className="form-note">
-              Pick the travel styles that should drive the ranking.
-            </p>
+        <div className="search-themes">
+          <div className="search-themes-head">
+            <span>Themes</span>
+            <span>{themes.length} of 5 selected</span>
           </div>
 
           <div className="chips">
@@ -114,6 +95,7 @@ export function SearchForm({
                   key={theme.value}
                   type="button"
                   className={isActive ? "chip chip-active" : "chip"}
+                  aria-pressed={isActive}
                   onClick={() => onToggleTheme(theme.value)}
                 >
                   {theme.label}
@@ -121,10 +103,6 @@ export function SearchForm({
               );
             })}
           </div>
-
-          <p className="inline-hint">
-            Selected: {selectedThemeLabels.join(", ")}
-          </p>
         </div>
 
         <div className="search-actions">
@@ -134,8 +112,8 @@ export function SearchForm({
             </strong>
             <span>
               {authUser
-                ? "Run the search and save the snapshot automatically."
-                : "Run the search now, or sign in first to save the result."}
+                ? "The result is saved to your account."
+                : "Sign in first to save the result."}
             </span>
           </div>
           <button
@@ -143,7 +121,7 @@ export function SearchForm({
             type="submit"
             disabled={!canSubmit || isLoading}
           >
-            {isLoading ? "Searching..." : "Show recommendations"}
+            {isLoading ? "Searching..." : "Show recommendations →"}
           </button>
         </div>
       </form>

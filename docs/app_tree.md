@@ -91,17 +91,21 @@ Monorepo layout and the responsibility of each module.
 │           ├── utils/
 │           │   ├── format.js          # Date, currency, badge and label helpers
 │           │   └── searchPayload.js   # API payload <-> UI state mapping
-│           ├── components/            # HeroCopy, AccountPanel, SearchForm,
+│           ├── components/            # SiteHeader, AccountPanel, SearchForm,
 │           │                          #   StatusBanners, ResultsMain, OptionCard,
 │           │                          #   ResultMeta, GuidancePanel, ResultSkeleton,
 │           │                          #   SearchSummary, SavedSearchesPanel
-│           └── styles/                # CSS split by area, imported in order
+│           └── styles/                # CSS split by area, driven by tokens
 │               ├── index.css          # Import order (matters for the cascade)
-│               ├── base.css           # Tokens, reset, form element defaults
-│               ├── layout.css         # Page, hero, typography, account panel
-│               ├── search-form.css    # Search form, themes, call to action
-│               ├── results.css        # Results layout, summary, history, meta, guidance
-│               ├── cards.css          # Option cards, markdown, banners, skeletons
+│               ├── tokens.css         # Colors, fonts, spacing, radius (CSS variables)
+│               ├── base.css           # Reset, body, focus, page width
+│               ├── ui.css             # Shared panel, field, chip, button, markdown
+│               ├── site-header.css    # Top bar
+│               ├── search-form.css    # Search panel, themes, call to action
+│               ├── results.css        # Results layout, meta, guidance, banners
+│               ├── option-card.css    # Result rows (airport code, price, reactions)
+│               ├── sidebar.css        # Search summary, account form, saved searches
+│               ├── skeleton.css       # Loading placeholders
 │               └── responsive.css     # Media queries
 │
 ├── infra/
