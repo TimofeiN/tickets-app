@@ -13,13 +13,14 @@ from app.application.ports.llm_provider import (
 )
 from app.core.settings import settings
 
-OPENAI_MODEL = "gpt-4.1-mini"
+OPENAI_MODEL = "gpt-6-luna"
 TRIP_SUMMARY_PROMPT_ID = "pmpt_69b3532d1fd8819687dc37a3e611c07e061da3bdb50845a0"
 TRIP_SUMMARY_PROMPT_VERSION = "4"
 TRIP_SUMMARY_MAX_OUTPUT_TOKENS = 5000
 MODEL_PRICING_USD_PER_1M_TOKENS: dict[str, tuple[float, float]] = {
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-5-nano": (0.05, 0.40),
+    "gpt-6-luna": (0.10, 0.50),
 }
 logger = logging.getLogger(__name__)
 

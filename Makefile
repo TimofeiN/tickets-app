@@ -44,7 +44,7 @@ be-db-current:
 	docker compose run --rm backend alembic -c alembic.ini current
 
 be-sync-iata:
-	docker compose run --rm backend python scripts/sync_iata_city_map.py
+	docker compose run --rm backend python -m scripts.sync_iata_city_map
 
 fe-lint:
 	docker compose run --rm frontend npm run lint && docker compose run --rm frontend npm run format
