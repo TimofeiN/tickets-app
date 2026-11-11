@@ -1,4 +1,4 @@
-.PHONY: init up down logs ps be-sync be-deps be-test be-lint be-check be-format be-db-upgrade be-db-current be-sync-iata be-llm-smoke fe-lint fe-format fe-build
+.PHONY: init up up-build down logs ps be-deps be-test be-lint be-mypy be-check be-format be-db-upgrade be-db-current be-sync-iata fe-lint fe-format fe-build
 
 init:
 	cp -n .env.example .env || true
@@ -19,7 +19,7 @@ ps:
 	docker compose ps
 
 be-deps:
-	cd apps/backend && uv sync --extra dev
+	cd apps/backend && uv sync --frozen
 	docker compose build backend
 
 be-test:
@@ -45,9 +45,6 @@ be-db-current:
 
 be-sync-iata:
 	docker compose run --rm backend python scripts/sync_iata_city_map.py
-
-be-llm-smoke:
-	docker compose run --rm backend python scripts/dev/manual_search_check.py
 
 fe-lint:
 	docker compose run --rm frontend npm run lint && docker compose run --rm frontend npm run format

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [[package]]
@@ -785,7 +785,7 @@ wheels = [
 [[package]]
 name = "tickets-backend"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -798,10 +798,9 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "alembic" },
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "ruff" },
@@ -809,22 +808,24 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", marker = "extra == 'dev'", specifier = "==1.17.1" },
     { name = "fastapi", specifier = "==0.135.1" },
     { name = "httpx", specifier = "==0.28.1" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = "==0.28.1" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = "==1.18.2" },
     { name = "openai", specifier = "==2.26.0" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.3" },
     { name = "pydantic", specifier = "==2.12.5" },
     { name = "pydantic-settings", specifier = "==2.11.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.5" },
     { name = "sqlalchemy", specifier = "==2.0.44" },
     { name = "sqlmodel", specifier = "==0.0.24" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.40.0" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "alembic", specifier = "==1.17.1" },
+    { name = "mypy", specifier = "==1.18.2" },
+    { name = "pytest", specifier = "==9.0.2" },
+    { name = "ruff", specifier = "==0.15.5" },
+]
 
 [[package]]
 name = "tqdm"

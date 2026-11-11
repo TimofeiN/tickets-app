@@ -1,0 +1,74 @@
+@media (max-width: 980px) {
+  .hero,
+  .results-layout,
+  .search-shell-header,
+  .theme-panel-header,
+  .search-actions,
+  .alternatives-header,
+  .summary-header {
+    grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .results-layout {
+    display: grid;
+  }
+
+  .hero-points {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-title-break {
+    display: none;
+  }
+
+  .hero-panel,
+  .summary-card,
+  .results-sidebar {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    width: min(100% - 20px, 1160px);
+    padding: 20px 0 44px;
+  }
+
+  .hero-copy,
+  .hero-panel,
+  .search-shell,
+  .results-section,
+  .card,
+  .card-featured,
+  .summary-card {
+    padding: 20px;
+  }
+
+  .field-grid,
+  .field-grid-main,
+  .detail-grid,
+  .alternative-grid,
+  .guidance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-topline,
+  .card-header,
+  .search-actions {
+    flex-direction: column;
+  }
+
+  .reaction-row {
+    flex-direction: column;
+  }
+
+  .price-block {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .cta-button {
+    width: 100%;
+  }
+}
