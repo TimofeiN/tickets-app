@@ -14,6 +14,7 @@ from app.infrastructure.db.repositories.auth_repository import AuthRepository
 from app.infrastructure.db.repositories.iata_city_repository import IataCityRepository
 from app.infrastructure.db.repositories.origin_airport_repository import OriginAirportRepository
 from app.infrastructure.db.repositories.saved_search_repository import SavedSearchRepository
+from app.infrastructure.db.repositories.trip_suggestion_repository import TripSuggestionRepository
 from app.infrastructure.db.session import get_db_session
 from app.infrastructure.providers.openai_provider import OpenAIProvider
 from app.infrastructure.providers.travelpayouts_provider import TravelpayoutsProvider
@@ -41,6 +42,12 @@ def get_saved_search_repository(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> SavedSearchRepository:
     return SavedSearchRepository(session=session)
+
+
+def get_trip_suggestion_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TripSuggestionRepository:
+    return TripSuggestionRepository(session=session)
 
 
 def get_search_service(
@@ -81,10 +88,14 @@ def get_saved_search_api_service(
 def get_search_api_service(
     search_service: Annotated[SearchService, Depends(get_search_service)],
     saved_search_repository: Annotated[SavedSearchRepository, Depends(get_saved_search_repository)],
+    trip_suggestion_repository: Annotated[
+        TripSuggestionRepository, Depends(get_trip_suggestion_repository)
+    ],
 ) -> SearchApiService:
     return SearchApiService(
         search_service=search_service,
         saved_search_repository=saved_search_repository,
+        trip_suggestion_repository=trip_suggestion_repository,
     )
 
 

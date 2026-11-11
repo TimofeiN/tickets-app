@@ -13,6 +13,9 @@ class SearchOptionContract(Protocol):
     def option_id(self) -> str: ...
 
     @property
+    def suggestion_id(self) -> str | None: ...
+
+    @property
     def destination_city(self) -> str: ...
 
     @property
@@ -32,6 +35,12 @@ class SearchOptionContract(Protocol):
 
     @property
     def trip_plan(self) -> str: ...
+
+    @property
+    def likes(self) -> int: ...
+
+    @property
+    def dislikes(self) -> int: ...
 
     @property
     def theme_explanation(self) -> str: ...
@@ -90,6 +99,7 @@ class SearchResultContract(Protocol):
 
 class FlightOption(BaseModel):
     option_id: str
+    suggestion_id: str | None = None
     destination_city: str
     origin_airport: str
     destination_airport: str
@@ -97,6 +107,8 @@ class FlightOption(BaseModel):
     score: float = Field(ge=0, le=1)
     reason: str
     trip_plan: str = ""
+    likes: int = Field(default=0, ge=0)
+    dislikes: int = Field(default=0, ge=0)
     theme_explanation: str = ""
     highlights: list[str] = Field(default_factory=list, max_length=3)
     tradeoff: str = ""
@@ -130,6 +142,7 @@ class SearchResponse(BaseModel):
             options=[
                 FlightOption(
                     option_id=item.option_id,
+                    suggestion_id=item.suggestion_id,
                     destination_city=item.destination_city,
                     origin_airport=item.origin_airport,
                     destination_airport=item.destination_airport,
@@ -137,6 +150,8 @@ class SearchResponse(BaseModel):
                     score=item.score,
                     reason=item.reason,
                     trip_plan=item.trip_plan,
+                    likes=item.likes,
+                    dislikes=item.dislikes,
                     theme_explanation=item.theme_explanation,
                     highlights=list(item.highlights),
                     tradeoff=item.tradeoff,

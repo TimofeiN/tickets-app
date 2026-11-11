@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_search_service
+from app.api.deps import get_search_service, get_trip_suggestion_repository
 from app.core.errors import ProviderUnavailableError
 from app.main import app
 
@@ -11,8 +11,17 @@ class _FailingSearchService:
         raise ProviderUnavailableError("provider timeout token=secret_token")
 
 
+class _NoCacheTripSuggestionRepository:
+    def list_top_for_query(self, *, query_key: str, limit: int = 3) -> list[object]:
+        del query_key, limit
+        return []
+
+
 def test_app_error_returns_frontend_contract() -> None:
     app.dependency_overrides[get_search_service] = lambda: _FailingSearchService()
+    app.dependency_overrides[get_trip_suggestion_repository] = lambda: (
+        _NoCacheTripSuggestionRepository()
+    )
     client = TestClient(app)
 
     payload = {

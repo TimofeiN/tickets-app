@@ -30,6 +30,7 @@ coverage/
 # Local AI working notes/plans
 ai/
 .tmp_skills/
+.dev/
 
 # Backend local debug scripts (do not commit)
 apps/backend/scripts/dev/

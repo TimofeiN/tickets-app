@@ -31,3 +31,8 @@ class RankingMode(StrEnum):
 class EnrichmentMode(StrEnum):
     llm = "llm"
     unavailable = "unavailable"
+
+
+class ReactionType(StrEnum):
+    like = "like"
+    dislike = "dislike"

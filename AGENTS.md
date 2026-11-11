@@ -12,7 +12,6 @@
   GitHub squash-merge message.
 
 ## Code Writing
-- Keep only code needed for the current scenario.
 - Do not add preparatory abstractions or future-facing helpers without a clear need.
 - When running backend tests or backend/dev scripts, run them in the container.
 

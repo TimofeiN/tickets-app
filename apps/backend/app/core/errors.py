@@ -69,3 +69,9 @@ class SavedSearchNotFoundError(AppError):
     error_code = "saved_search_not_found"
     status_code = 404
     public_message = "Saved search not found"
+
+
+class TripSuggestionNotFoundError(AppError):
+    error_code = "trip_suggestion_not_found"
+    status_code = 404
+    public_message = "Trip suggestion not found"

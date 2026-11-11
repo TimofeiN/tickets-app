@@ -15,6 +15,9 @@ class SearchOptionResult:
     score: float
     reason: str
     trip_plan: str
+    suggestion_id: str | None = None
+    likes: int = 0
+    dislikes: int = 0
     theme_explanation: str = ""
     highlights: tuple[str, ...] = ()
     tradeoff: str = ""

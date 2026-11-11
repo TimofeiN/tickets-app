@@ -332,11 +332,23 @@ function GuidancePanel({ guidance }) {
   );
 }
 
-function OptionCard({ option, index, options, featured = false }) {
+function OptionCard({
+  option,
+  index,
+  options,
+  featured = false,
+  canReact = false,
+  reactionValue = "",
+  reactionErrorText = "",
+  isReactionLoading = false,
+  onReact = null,
+}) {
   const badges = getOptionBadges(option, index, options);
   const cardClassName = featured ? "card card-featured" : "card";
   const hasStyleDetails = option.trip_style || option.vibe;
   const tripPlan = option.trip_plan?.trim() || "";
+  const canSendReaction =
+    canReact && option.suggestion_id && typeof onReact === "function";
   const isTripPlanCollapsible =
     tripPlan.length > 320 || tripPlan.split("\n").filter(Boolean).length > 5;
   const [isTripPlanExpanded, setIsTripPlanExpanded] = useState(false);
@@ -373,6 +385,44 @@ function OptionCard({ option, index, options, featured = false }) {
       <section className="card-section">
         <p className="section-kicker">Why this works</p>
         <p className="lead">{option.reason}</p>
+      </section>
+
+      <section className="card-section reaction-section">
+        <p className="section-kicker">Was this useful?</p>
+        <div className="reaction-row">
+          <button
+            className={
+              reactionValue === "like"
+                ? "reaction-button reaction-button-like-active"
+                : "reaction-button"
+            }
+            type="button"
+            disabled={!canSendReaction || isReactionLoading}
+            onClick={() => onReact(option.suggestion_id, "like")}
+          >
+            <span>Like</span>
+            <strong>{option.likes ?? 0}</strong>
+          </button>
+          <button
+            className={
+              reactionValue === "dislike"
+                ? "reaction-button reaction-button-dislike-active"
+                : "reaction-button"
+            }
+            type="button"
+            disabled={!canSendReaction || isReactionLoading}
+            onClick={() => onReact(option.suggestion_id, "dislike")}
+          >
+            <span>Dislike</span>
+            <strong>{option.dislikes ?? 0}</strong>
+          </button>
+        </div>
+        {!canReact ? (
+          <p className="inline-hint">Sign in to rate recommendations.</p>
+        ) : null}
+        {reactionErrorText ? (
+          <p className="inline-hint inline-hint-error">{reactionErrorText}</p>
+        ) : null}
       </section>
 
       {hasStyleDetails ? (
@@ -690,6 +740,7 @@ export default function App() {
   const [savedSearchesError, setSavedSearchesError] = useState("");
   const [isSavedSearchesLoading, setIsSavedSearchesLoading] = useState(false);
   const [activeSavedSearchId, setActiveSavedSearchId] = useState(null);
+  const [reactionBySuggestionId, setReactionBySuggestionId] = useState({});
   const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const searchShellRef = useRef(null);
 
@@ -829,6 +880,7 @@ export default function App() {
       setSavedSearches([]);
       setSavedSearchesError("");
       setActiveSavedSearchId(null);
+      setReactionBySuggestionId({});
       setResultStatusText("Signed out. New searches will not be saved.");
     }
   }
@@ -853,6 +905,7 @@ export default function App() {
     setResultStatusText("");
     setResult(null);
     setActiveSavedSearchId(null);
+    setReactionBySuggestionId({});
     applySearchContext(payload);
 
     try {
@@ -893,11 +946,78 @@ export default function App() {
       applySearchContext(data.request_payload);
       setResult(normalizeResultPayload(data.response_payload, savedSearchId));
       setActiveSavedSearchId(savedSearchId);
+      setReactionBySuggestionId({});
       setResultStatusText("Loaded from saved searches.");
     } catch (error) {
       setSavedSearchesError(error.message || "Failed to load saved search");
     } finally {
       setIsSavedSearchesLoading(false);
+    }
+  }
+
+  async function handleReactToOption(suggestionId, reaction) {
+    if (!authToken) {
+      setResultStatusText("Sign in to rate recommendations.");
+      return;
+    }
+    if (!suggestionId) {
+      return;
+    }
+
+    setReactionBySuggestionId((current) => ({
+      ...current,
+      [suggestionId]: {
+        ...current[suggestionId],
+        isLoading: true,
+        errorText: "",
+      },
+    }));
+
+    try {
+      const response = await fetchJson(
+        `/search/suggestions/${suggestionId}/reaction`,
+        {
+          method: "POST",
+          token: authToken,
+          body: JSON.stringify({ reaction }),
+        },
+      );
+
+      setReactionBySuggestionId((current) => ({
+        ...current,
+        [suggestionId]: {
+          reaction: response.reaction,
+          isLoading: false,
+          errorText: "",
+        },
+      }));
+
+      setResult((current) => {
+        if (!current) {
+          return current;
+        }
+        return {
+          ...current,
+          options: (current.options || []).map((option) =>
+            option.suggestion_id === suggestionId
+              ? {
+                  ...option,
+                  likes: response.likes,
+                  dislikes: response.dislikes,
+                }
+              : option,
+          ),
+        };
+      });
+    } catch (error) {
+      setReactionBySuggestionId((current) => ({
+        ...current,
+        [suggestionId]: {
+          ...current[suggestionId],
+          isLoading: false,
+          errorText: error.message || "Failed to save reaction",
+        },
+      }));
     }
   }
 
@@ -1170,6 +1290,28 @@ export default function App() {
                   index={0}
                   options={options}
                   featured
+                  canReact={Boolean(authUser)}
+                  reactionValue={
+                    featuredOption.suggestion_id
+                      ? reactionBySuggestionId[featuredOption.suggestion_id]
+                          ?.reaction || ""
+                      : ""
+                  }
+                  reactionErrorText={
+                    featuredOption.suggestion_id
+                      ? reactionBySuggestionId[featuredOption.suggestion_id]
+                          ?.errorText || ""
+                      : ""
+                  }
+                  isReactionLoading={
+                    featuredOption.suggestion_id
+                      ? Boolean(
+                          reactionBySuggestionId[featuredOption.suggestion_id]
+                            ?.isLoading,
+                        )
+                      : false
+                  }
+                  onReact={handleReactToOption}
                 />
 
                 {alternativeOptions.length ? (
@@ -1185,6 +1327,28 @@ export default function App() {
                           option={option}
                           index={optionIndex + 1}
                           options={options}
+                          canReact={Boolean(authUser)}
+                          reactionValue={
+                            option.suggestion_id
+                              ? reactionBySuggestionId[option.suggestion_id]
+                                  ?.reaction || ""
+                              : ""
+                          }
+                          reactionErrorText={
+                            option.suggestion_id
+                              ? reactionBySuggestionId[option.suggestion_id]
+                                  ?.errorText || ""
+                              : ""
+                          }
+                          isReactionLoading={
+                            option.suggestion_id
+                              ? Boolean(
+                                  reactionBySuggestionId[option.suggestion_id]
+                                    ?.isLoading,
+                                )
+                              : false
+                          }
+                          onReact={handleReactToOption}
                         />
                       ))}
                     </div>

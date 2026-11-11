@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_search_service
+from app.api.deps import get_search_service, get_trip_suggestion_repository
 from app.application.ports.city_resolver import ResolvedCityName
 from app.application.ports.flight_search_provider import FlightOffer, FlightProviderResult
 from app.application.ports.llm_provider import LLMProviderError
@@ -113,6 +113,16 @@ class _FailingSemanticLLMProvider(_SuccessfulLLMProvider):
         raise LLMProviderError("upstream timeout")
 
 
+class _NoCacheTripSuggestionRepository:
+    def list_top_for_query(self, *, query_key: str, limit: int = 3) -> list[object]:
+        del query_key, limit
+        return []
+
+    def save_suggestions(self, **kwargs) -> list[object]:
+        del kwargs
+        return []
+
+
 def _override_search_service(
     llm_provider: object,
     *,
@@ -127,10 +137,22 @@ def _override_search_service(
     )
 
 
-def test_search_strict_dates_success() -> None:
+def _install_search_overrides(
+    llm_provider: object,
+    *,
+    flight_provider: object | None = None,
+) -> None:
     app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _SuccessfulLLMProvider()
+        llm_provider,
+        flight_provider=flight_provider,
     )
+    app.dependency_overrides[get_trip_suggestion_repository] = lambda: (
+        _NoCacheTripSuggestionRepository()
+    )
+
+
+def test_search_strict_dates_success() -> None:
+    _install_search_overrides(_SuccessfulLLMProvider())
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -177,9 +199,7 @@ def test_search_strict_dates_success() -> None:
 
 
 def test_search_requires_matching_dates_payload() -> None:
-    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _SuccessfulLLMProvider()
-    )
+    _install_search_overrides(_SuccessfulLLMProvider())
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -195,9 +215,7 @@ def test_search_requires_matching_dates_payload() -> None:
 
 
 def test_search_uses_llm_ranking_when_available() -> None:
-    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _SuccessfulLLMProvider()
-    )
+    _install_search_overrides(_SuccessfulLLMProvider())
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -236,9 +254,7 @@ def test_search_uses_llm_ranking_when_available() -> None:
 
 
 def test_search_falls_back_to_deterministic_ranking_on_llm_failure() -> None:
-    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
-        _FailingSemanticLLMProvider()
-    )
+    _install_search_overrides(_FailingSemanticLLMProvider())
     client = TestClient(app)
     payload = {
         "origin_city": "Belgrade",
@@ -270,7 +286,7 @@ def test_search_falls_back_to_deterministic_ranking_on_llm_failure() -> None:
 
 
 def test_search_can_return_two_options() -> None:
-    app.dependency_overrides[get_search_service] = lambda: _override_search_service(
+    _install_search_overrides(
         _FailingSemanticLLMProvider(),
         flight_provider=_TwoOptionFlightProvider(),
     )

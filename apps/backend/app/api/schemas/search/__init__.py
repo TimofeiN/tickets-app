@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from app.api.schemas.search.reaction import (
+    SuggestionReactionRequest,
+    SuggestionReactionResponse,
+)
 from app.api.schemas.search.request import SearchRequest
 from app.api.schemas.search.response import SearchResponse
 from app.api.schemas.search.saved import (
@@ -12,4 +16,6 @@ __all__ = [
     "SavedSearchSummaryResponse",
     "SearchRequest",
     "SearchResponse",
+    "SuggestionReactionRequest",
+    "SuggestionReactionResponse",
 ]
